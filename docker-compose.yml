@@ -3,10 +3,10 @@ services:
     image: ${MYNOTE_IMAGE:-zhong12138/mynote:latest}
     container_name: mynote
     ports:
-      - "3665:3000"
+      - "3665:3665"
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 3665
       DATABASE_URL: postgresql://mynote:${DB_PASSWORD:-mynote_secret}@db:5432/mynote
       JWT_SECRET: ${JWT_SECRET:-900fd0a5f81ecfcbc6e7bb1ffb251eda4f448626ecf6e9d706bdb2e094ca2500}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
@@ -19,7 +19,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3665/api/health >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5

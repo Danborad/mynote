@@ -2,8 +2,9 @@ services:
   app:
     image: zhong12138/mynote:latest
     ports:
-      - "3665:3000"
+      - "3665:3665"
     environment:
+      PORT: 3665
       DATABASE_URL: postgresql://mynote:mynote_password@db:5432/mynote
       JWT_SECRET: change_this_to_a_long_random_secret
       ALLOW_REGISTRATION: "true"

@@ -14,8 +14,8 @@ async function bootstrap() {
     // API 前缀
     app.setGlobalPrefix('api');
 
-    const port = process.env.PORT || 3000;
-    await app.listen(port);
+    const port = process.env.PORT || 3665;
+    await app.listen(port, '0.0.0.0');
     console.log(`MyNote API 运行在 http://localhost:${port}`);
 }
 bootstrap();

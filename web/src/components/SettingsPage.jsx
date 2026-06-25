@@ -414,7 +414,7 @@ export default function SettingsPage({ isOverlayDrawer = false, onClose }) {
                                                     type="text"
                                                     value={serverInput}
                                                     onChange={(e) => setServerInput(e.target.value)}
-                                                    placeholder="例如: http://192.168.1.20:3000"
+                                                    placeholder="例如: http://192.168.1.20:3665"
                                                     className="h-10 rounded-xl border border-[#dce4ee] bg-[#f8fafc] px-3 text-sm outline-none focus:border-[#1568ff] dark:border-[#263241] dark:bg-[#0f1722]"
                                                 />
                                                 <button
@@ -607,7 +607,7 @@ export default function SettingsPage({ isOverlayDrawer = false, onClose }) {
                                         type="text"
                                         value={serverInput}
                                         onChange={(e) => setServerInput(e.target.value)}
-                                        placeholder="例如: http://192.168.1.20:3000"
+                                        placeholder="例如: http://192.168.1.20:3665"
                                         className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:border-primary outline-none text-sm"
                                     />
                                     <button
