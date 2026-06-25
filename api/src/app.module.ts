@@ -12,6 +12,7 @@ import { FoldersModule } from './folders/folders.module';
 import { FilesModule } from './files/files.module';
 import { CaptchaModule } from './captcha/captcha.module';
 import { HealthController } from './health.controller';
+import { VersionController } from './version.controller';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
 import { TypeOrmModule as FeatureTypeOrmModule } from '@nestjs/typeorm';
 import { AdminBootstrapService } from './admin/admin-bootstrap.service';
@@ -47,7 +48,7 @@ import { AdminModule } from './admin/admin.module';
         FoldersModule,
         FilesModule,
     ],
-    controllers: [HealthController],
+    controllers: [HealthController, VersionController],
     providers: [AdminBootstrapService],
 })
 export class AppModule { }

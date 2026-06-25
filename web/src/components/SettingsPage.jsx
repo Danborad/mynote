@@ -8,22 +8,6 @@ import { useToast } from '../contexts/ToastContext' // Added useToast import
 
 const APP_VERSION = '1.0.0'
 const GITHUB_URL = 'https://github.com/Danborad/mynote'
-const GITHUB_LATEST_RELEASE_API = 'https://api.github.com/repos/Danborad/mynote/releases/latest'
-
-function normalizeVersion(version = '') {
-    return version.replace(/^v/i, '').split(/[+-]/)[0]
-}
-
-function compareVersions(left, right) {
-    const a = normalizeVersion(left).split('.').map((part) => Number.parseInt(part, 10) || 0)
-    const b = normalizeVersion(right).split('.').map((part) => Number.parseInt(part, 10) || 0)
-    const length = Math.max(a.length, b.length)
-    for (let i = 0; i < length; i += 1) {
-        if ((a[i] || 0) > (b[i] || 0)) return 1
-        if ((a[i] || 0) < (b[i] || 0)) return -1
-    }
-    return 0
-}
 
 export default function SettingsPage({ isOverlayDrawer = false, onClose }) {
     const { user, uploadAvatar, updateSettings, changePassword, login, register, logout, getCaptcha, serverUrl, saveServerAddress, isCloudSession, isRemoteConfigured } = useAuth()
@@ -298,32 +282,24 @@ export default function SettingsPage({ isOverlayDrawer = false, onClose }) {
     const handleCheckUpdate = async () => {
         setUpdateChecking(true)
         try {
-            const response = await fetch(GITHUB_LATEST_RELEASE_API, {
-                headers: { Accept: 'application/vnd.github+json' },
-            })
-
-            if (response.status === 404) {
-                showToast('暂无可用发布版本', 'info')
-                return
-            }
+            const response = await fetch('/api/version/latest')
             if (!response.ok) {
-                throw new Error(`GitHub 返回 ${response.status}`)
+                throw new Error(`服务返回 ${response.status}`)
             }
 
             const data = await response.json()
-            const latest = data?.tag_name || ''
-            if (!latest) {
-                showToast('暂无可用发布版本', 'info')
+            if (!data.ok) {
+                showToast(data.message || '暂时无法检查更新，请稍后再试', 'warning')
                 return
             }
 
-            if (compareVersions(latest, APP_VERSION) > 0) {
-                showToast(`发现新版本 ${latest}，请前往 GitHub 下载`, 'success')
+            if (data.hasUpdate && data.latest) {
+                showToast(`发现新版本 ${data.latest}，请前往 GitHub 下载`, 'success')
             } else {
-                showToast(`当前已是最新版本 ${APP_VERSION}`, 'success')
+                showToast(`当前已是最新版本 v${APP_VERSION}`, 'success')
             }
         } catch (error) {
-            showToast(`检查更新失败: ${error.message}`, 'error')
+            showToast(`暂时无法检查更新: ${error.message}`, 'warning')
         } finally {
             setUpdateChecking(false)
         }
