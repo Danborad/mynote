@@ -1,0 +1,27 @@
+services:
+  app:
+    image: zhong12138/mynote:latest
+    ports:
+      - "3665:3000"
+    environment:
+      DATABASE_URL: postgresql://mynote:mynote_password@db:5432/mynote
+      JWT_SECRET: change_this_to_a_long_random_secret
+      ALLOW_REGISTRATION: "true"
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123456
+    volumes:
+      - ./data/uploads:/app/uploads
+      - ./data/backups:/app/backups
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: mynote
+      POSTGRES_PASSWORD: mynote_password
+      POSTGRES_DB: mynote
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    restart: unless-stopped
