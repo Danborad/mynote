@@ -2,6 +2,12 @@
 
 Flutter 原生安卓客户端。
 
+## 当前版本
+
+- 版本号：`1.0.0`
+- APK：[`../releases/mynote-android-v1.0.0.apk`](../releases/mynote-android-v1.0.0.apk)
+- SHA256：`ffcba3c8881fd1da6b70417c9754d2ba8c571518db9fb3a24385428b5c3d33d3`
+
 ## 当前状态
 
 已完成的首轮编辑器重构：

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:mynote_android/app/providers.dart';
 import 'package:mynote_android/app/theme/app_theme.dart';
-import 'package:mynote_android/core/debug/debug_log.dart';
 import 'package:mynote_android/core/storage/note_font_size_storage.dart';
 import 'package:mynote_android/app/utils/note_preview.dart';
 import 'package:mynote_android/domain/entities/folder_item.dart';
@@ -20,6 +20,37 @@ import 'package:mynote_android/ui/viewmodels/notes_board_view_model.dart';
 import 'package:mynote_android/ui/views/editor/editor_view.dart';
 import 'package:mynote_android/ui/widgets/folder_picker_sheet.dart';
 import 'package:mynote_android/ui/widgets/mynote_wordmark.dart';
+
+const String _appVersion = '1.0.0';
+const String _githubUrl = 'https://github.com/Danborad/mynote';
+const String _githubLatestReleaseApi =
+    'https://api.github.com/repos/Danborad/mynote/releases/latest';
+
+String _normalizeVersion(String version) => version
+    .replaceFirst(RegExp(r'^v', caseSensitive: false), '')
+    .split('+')
+    .first
+    .split('-')
+    .first;
+
+int _compareVersions(String left, String right) {
+  final a = _normalizeVersion(left)
+      .split('.')
+      .map((part) => int.tryParse(part) ?? 0)
+      .toList();
+  final b = _normalizeVersion(right)
+      .split('.')
+      .map((part) => int.tryParse(part) ?? 0)
+      .toList();
+  final length = a.length > b.length ? a.length : b.length;
+  for (var i = 0; i < length; i += 1) {
+    final av = i < a.length ? a[i] : 0;
+    final bv = i < b.length ? b[i] : 0;
+    if (av > bv) return 1;
+    if (av < bv) return -1;
+  }
+  return 0;
+}
 
 class NotesBoardView extends ConsumerStatefulWidget {
   const NotesBoardView({super.key});
@@ -64,7 +95,6 @@ class _NotesBoardViewState extends ConsumerState<NotesBoardView> {
       final previousUrl = previous?.valueOrNull;
       final nextUrl = next.valueOrNull;
       if (nextUrl != null && previousUrl != nextUrl) {
-        ref.read(debugLogProvider.notifier).add('Server URL ready: $nextUrl');
         ref.read(notesBoardViewModelProvider.notifier).load();
       }
     });
@@ -2404,6 +2434,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
   late final TextEditingController _trashRetentionController;
   late final TextEditingController _shareRetentionController;
   late final TextEditingController _serverController;
+  bool _checkingUpdate = false;
 
   @override
   void initState() {
@@ -2439,7 +2470,6 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
     final palette = context.palette;
     final state = ref.watch(notesBoardViewModelProvider);
     final noteFontSize = ref.watch(noteFontSizeProvider);
-    final logs = ref.watch(debugLogProvider);
     final usageText = _formatStorageSize(state.storageUsageBytes);
 
     return Container(
@@ -2575,48 +2605,32 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                 ),
                 const SizedBox(height: 16),
                 _SettingsCard(
-                  title: '调试日志',
+                  title: '关于 MyNote',
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              '请求、登录态和首页加载状态',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF667085),
-                              ),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () =>
-                                ref.read(debugLogProvider.notifier).clear(),
-                            child: const Text('清空'),
-                          ),
-                        ],
+                      const _AboutSettingRow(
+                        icon: Icons.info_outline,
+                        label: '当前版本',
+                        value: 'v$_appVersion',
                       ),
-                      const SizedBox(height: 8),
-                      Container(
+                      _AboutSettingRow(
+                        icon: Icons.code_rounded,
+                        label: 'GitHub 地址',
+                        value: _githubUrl,
+                        onTap: () => _copyGithubUrl(context),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
                         width: double.infinity,
-                        constraints: const BoxConstraints(maxHeight: 260),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0F172A),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: SingleChildScrollView(
-                          child: Text(
-                            logs.isEmpty ? '暂无日志' : logs.join('\n'),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              height: 1.45,
-                              color: Color(0xFFE2E8F0),
-                              fontFamily: 'monospace',
-                            ),
-                          ),
+                        height: 44,
+                        child: FilledButton.icon(
+                          onPressed: _checkingUpdate
+                              ? null
+                              : () => _checkForUpdate(context),
+                          icon: const Icon(Icons.system_update_alt_rounded),
+                          label: Text(_checkingUpdate ? '检查中...' : '检查更新'),
                         ),
                       ),
                     ],
@@ -2626,7 +2640,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                 Center(
                   child: Column(
                     children: [
-                      const Text('V 4.2.0 (Build 2910) • © 2026 MyNote',
+                      const Text('V $_appVersion • © 2026 MyNote',
                           style: TextStyle(
                               fontSize: 11, color: Color(0xFF94A3B8))),
                       const SizedBox(height: 4),
@@ -2700,6 +2714,119 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
           ],
         );
       },
+    );
+  }
+
+  Future<void> _copyGithubUrl(BuildContext context) async {
+    await Clipboard.setData(const ClipboardData(text: _githubUrl));
+    if (!context.mounted) return;
+    showAppSnackBar(context, 'GitHub 地址已复制');
+  }
+
+  Future<void> _checkForUpdate(BuildContext context) async {
+    setState(() => _checkingUpdate = true);
+    try {
+      final response = await Dio().get<Map<String, dynamic>>(
+        _githubLatestReleaseApi,
+        options: Options(
+          headers: const {'Accept': 'application/vnd.github+json'},
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+
+      if (response.statusCode == 404) {
+        if (context.mounted) showAppSnackBar(context, '暂无可用发布版本');
+        return;
+      }
+      if (response.statusCode == null || response.statusCode! >= 400) {
+        throw Exception('GitHub 返回 ${response.statusCode}');
+      }
+
+      final latest = response.data?['tag_name']?.toString() ?? '';
+      if (latest.isEmpty) {
+        if (context.mounted) showAppSnackBar(context, '暂无可用发布版本');
+        return;
+      }
+
+      if (_compareVersions(latest, _appVersion) > 0) {
+        if (context.mounted) {
+          showAppSnackBar(context, '发现新版本 $latest，请前往 GitHub 下载');
+        }
+      } else if (context.mounted) {
+        showAppSnackBar(context, '当前已是最新版本 v$_appVersion');
+      }
+    } catch (error) {
+      if (context.mounted) showAppSnackBar(context, '检查更新失败: $error');
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
+    }
+  }
+}
+
+class _AboutSettingRow extends StatelessWidget {
+  const _AboutSettingRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final surface = Theme.of(context).colorScheme.surface;
+    final content = Container(
+      constraints: const BoxConstraints(minHeight: 48),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: palette.secondaryText),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: palette.primaryText,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: onTap == null
+                    ? palette.secondaryText
+                    : palette.selectedChipBackground,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return content;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: content,
     );
   }
 }

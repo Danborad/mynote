@@ -6,6 +6,25 @@ import CropModal from './CropModal'
 import { useNotes } from '../contexts/NotesContext'
 import { useToast } from '../contexts/ToastContext' // Added useToast import
 
+const APP_VERSION = '1.0.0'
+const GITHUB_URL = 'https://github.com/Danborad/mynote'
+const GITHUB_LATEST_RELEASE_API = 'https://api.github.com/repos/Danborad/mynote/releases/latest'
+
+function normalizeVersion(version = '') {
+    return version.replace(/^v/i, '').split(/[+-]/)[0]
+}
+
+function compareVersions(left, right) {
+    const a = normalizeVersion(left).split('.').map((part) => Number.parseInt(part, 10) || 0)
+    const b = normalizeVersion(right).split('.').map((part) => Number.parseInt(part, 10) || 0)
+    const length = Math.max(a.length, b.length)
+    for (let i = 0; i < length; i += 1) {
+        if ((a[i] || 0) > (b[i] || 0)) return 1
+        if ((a[i] || 0) < (b[i] || 0)) return -1
+    }
+    return 0
+}
+
 export default function SettingsPage({ isOverlayDrawer = false, onClose }) {
     const { user, uploadAvatar, updateSettings, changePassword, login, register, logout, getCaptcha, serverUrl, saveServerAddress, isCloudSession, isRemoteConfigured } = useAuth()
     const { isDark } = useTheme()
@@ -42,6 +61,7 @@ export default function SettingsPage({ isOverlayDrawer = false, onClose }) {
     const [captchaId, setCaptchaId] = useState('')
     const [captchaText, setCaptchaText] = useState('')
     const [captchaImage, setCaptchaImage] = useState('')
+    const [updateChecking, setUpdateChecking] = useState(false)
 
     useEffect(() => {
         setServerInput(serverUrl || '')
@@ -273,6 +293,40 @@ export default function SettingsPage({ isOverlayDrawer = false, onClose }) {
         logout()
         await Promise.all([loadNotes(), loadFolders()])
         showToast('已退出云端账号，继续离线使用', 'success')
+    }
+
+    const handleCheckUpdate = async () => {
+        setUpdateChecking(true)
+        try {
+            const response = await fetch(GITHUB_LATEST_RELEASE_API, {
+                headers: { Accept: 'application/vnd.github+json' },
+            })
+
+            if (response.status === 404) {
+                showToast('暂无可用发布版本', 'info')
+                return
+            }
+            if (!response.ok) {
+                throw new Error(`GitHub 返回 ${response.status}`)
+            }
+
+            const data = await response.json()
+            const latest = data?.tag_name || ''
+            if (!latest) {
+                showToast('暂无可用发布版本', 'info')
+                return
+            }
+
+            if (compareVersions(latest, APP_VERSION) > 0) {
+                showToast(`发现新版本 ${latest}，请前往 GitHub 下载`, 'success')
+            } else {
+                showToast(`当前已是最新版本 ${APP_VERSION}`, 'success')
+            }
+        } catch (error) {
+            showToast(`检查更新失败: ${error.message}`, 'error')
+        } finally {
+            setUpdateChecking(false)
+        }
     }
 
 
@@ -584,6 +638,35 @@ export default function SettingsPage({ isOverlayDrawer = false, onClose }) {
                                         <strong className="text-[#667386] dark:text-[#a9b8cc]">{shareRetentionDays} 天</strong>
                                     </div>
                                 </div>
+                                <div className="mt-5 border-t border-[#e9eef5] pt-4 dark:border-[#263241]">
+                                    <h2 className={desktopSectionTitleClass}>
+                                        <span className="material-icons-outlined text-base">info</span>
+                                        关于 MyNote
+                                    </h2>
+                                <div className="space-y-2.5 text-[12px] text-[#6c7788] dark:text-[#8ea0b7]">
+                                    <div className="flex items-center justify-between gap-3 rounded-[13px] bg-[#f7f9fc] px-3 py-2 dark:bg-[#0f1722]">
+                                        <span>当前版本</span>
+                                        <strong className="text-[#111827] dark:text-white">v{APP_VERSION}</strong>
+                                    </div>
+                                    <a
+                                        href={GITHUB_URL}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex items-center justify-between gap-3 rounded-[13px] bg-[#f7f9fc] px-3 py-2 font-bold text-[#1568ff] hover:bg-[#edf4ff] dark:bg-[#0f1722] dark:text-[#8cc7ff]"
+                                    >
+                                        <span>GitHub 地址</span>
+                                        <span className="material-icons-outlined text-[15px]">open_in_new</span>
+                                    </a>
+                                    <button
+                                        type="button"
+                                        onClick={handleCheckUpdate}
+                                        disabled={updateChecking}
+                                        className="h-10 w-full rounded-[13px] bg-[#1568ff] text-[13px] font-extrabold text-white shadow-[0_8px_18px_rgba(21,104,255,0.16)] hover:bg-[#0f5de8] disabled:opacity-60"
+                                    >
+                                        {updateChecking ? '检查中...' : '检查更新'}
+                                    </button>
+                                </div>
+                                </div>
                             </aside>
                         </div>
                     </div>
@@ -879,8 +962,39 @@ export default function SettingsPage({ isOverlayDrawer = false, onClose }) {
                     </>
                 )}
 
+                <section className="mb-4 md:mb-2.5">
+                    <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 md:mb-1.5 flex items-center gap-2">
+                        <span className="material-icons-outlined text-base">info</span>
+                        关于 MyNote
+                    </h2>
+                    <div className="bg-white dark:bg-[#111925] rounded-[24px] md:rounded-xl p-3 md:p-2.5 border border-[#e7edf5] dark:border-[#283445] shadow-[0_12px_28px_rgba(15,23,42,0.06)] md:shadow-none dark:shadow-[0_18px_36px_rgba(2,6,14,0.28)]">
+                        <div className="flex items-center justify-between gap-3 min-h-9 rounded-[18px] bg-[#fbfcfe] px-3 py-1.5 dark:bg-[#0f1722]">
+                            <span className="text-sm text-gray-600 dark:text-text-secondary">当前版本</span>
+                            <strong className="text-sm text-gray-900 dark:text-white">v{APP_VERSION}</strong>
+                        </div>
+                        <a
+                            href={GITHUB_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 flex items-center justify-between gap-3 min-h-9 rounded-[18px] bg-[#fbfcfe] px-3 py-1.5 text-sm font-semibold text-[#2563eb] dark:bg-[#0f1722] dark:text-[#8cc7ff]"
+                        >
+                            <span>GitHub 地址</span>
+                            <span className="material-icons-outlined text-[15px]">open_in_new</span>
+                        </a>
+                        <button
+                            type="button"
+                            onClick={handleCheckUpdate}
+                            disabled={updateChecking}
+                            className="mt-2 h-9 w-full rounded-xl text-[12px] font-semibold bg-primary text-white hover:bg-blue-600 disabled:opacity-60 inline-flex items-center justify-center gap-2"
+                        >
+                            <span className="material-icons-outlined text-[16px]">system_update</span>
+                            {updateChecking ? '检查中...' : '检查更新'}
+                        </button>
+                    </div>
+                </section>
+
                 <div className="md:hidden pt-1 pb-3 text-center text-[10px] text-[#98a2b3] dark:text-[#7f8da3]">
-                    V 4.2.0 (Build 2910) • © 2024 数字策展人
+                    V {APP_VERSION} • © 2026 MyNote
                 </div>
                 </div>
 

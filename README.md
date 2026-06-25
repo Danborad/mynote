@@ -211,8 +211,16 @@ Android 客户端位于 [Android/](Android/)：
 - 支持笔记详情页字体大小设置
 - 支持图片、音频、视频媒体插入
 - 支持离线模式与重新连接后的同步流程
+- 当前版本：`1.0.0`
+- APK 下载：[releases/mynote-android-v1.0.0.apk](releases/mynote-android-v1.0.0.apk)
 
 更多说明见 [Android/README.md](Android/README.md)。
+
+APK 校验：
+
+```text
+SHA256  ffcba3c8881fd1da6b70417c9754d2ba8c571518db9fb3a24385428b5c3d33d3
+```
 
 ## Docker Hub 镜像
 

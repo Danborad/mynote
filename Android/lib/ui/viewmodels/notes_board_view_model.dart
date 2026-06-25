@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mynote_android/app/providers.dart';
-import 'package:mynote_android/core/debug/debug_log.dart';
 import 'package:mynote_android/domain/entities/folder_item.dart';
 import 'package:mynote_android/domain/entities/note_item.dart';
 
@@ -127,8 +126,6 @@ class NotesBoardViewModel extends StateNotifier<NotesBoardState> {
         stats: stats,
       );
     } catch (error) {
-      // ignore: avoid_print
-      print('[NotesBoard][error] $error');
       state = state.copyWith(loading: false, error: error.toString());
     }
   }
@@ -512,11 +509,6 @@ class NotesBoardViewModel extends StateNotifier<NotesBoardState> {
           const <NoteItem>[],
       };
       final stats = await _loadStats();
-      // ignore: avoid_print
-      print(
-          '[NotesBoard] loaded ${notes.length} notes for ${currentView.name}');
-      ref.read(debugLogProvider.notifier).add(
-          'NotesBoard ${currentView.name} notes=${notes.length} folders=${folders.length}');
       state = state.copyWith(
         folders: folders,
         notes: notes,
@@ -524,9 +516,6 @@ class NotesBoardViewModel extends StateNotifier<NotesBoardState> {
         loading: false,
       );
     } catch (error) {
-      // ignore: avoid_print
-      print('[NotesBoard][error] $error');
-      ref.read(debugLogProvider.notifier).add('NotesBoard error: $error');
       state = state.copyWith(loading: false, error: error.toString());
     }
   }

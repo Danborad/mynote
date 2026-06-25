@@ -1,7 +1,6 @@
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mynote_android/core/debug/debug_log.dart';
 import 'package:mynote_android/core/network/api_client.dart';
 import 'package:mynote_android/core/storage/note_font_size_storage.dart';
 import 'package:mynote_android/core/storage/local_notes_storage.dart';
@@ -31,7 +30,6 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     baseUrl: baseUrlState.valueOrNull,
     tokenStorage: ref.watch(tokenStorageProvider),
-    onLog: ref.read(debugLogProvider.notifier).add,
   );
 });
 

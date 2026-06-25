@@ -6,9 +6,7 @@ class ApiClient {
     Dio? dio,
     String? baseUrl,
     TokenStorage? tokenStorage,
-    void Function(String message)? onLog,
-  })
-      : dio = dio ??
+  })  : dio = dio ??
             Dio(
               BaseOptions(
                 baseUrl: _normalizeBaseUrl(baseUrl ?? 'http://127.0.0.1:3665'),
@@ -17,8 +15,7 @@ class ApiClient {
                 headers: const {'Content-Type': 'application/json'},
               ),
             ),
-        tokenStorage = tokenStorage ?? TokenStorage(),
-        onLog = onLog ?? ((_) {}) {
+        tokenStorage = tokenStorage ?? TokenStorage() {
     this.dio.interceptors.add(
           InterceptorsWrapper(
             onRequest: (options, handler) async {
@@ -31,24 +28,12 @@ class ApiClient {
                   options.headers['Authorization'] = 'Bearer $token';
                 }
               }
-              // ignore: avoid_print
-              print(
-                  '[API] ${options.method} ${options.baseUrl}${options.path}');
-              this.onLog(
-                  'API ${options.method} ${options.baseUrl}${options.path} token=${options.headers.containsKey('Authorization') ? 'yes' : 'no'}');
               handler.next(options);
             },
             onResponse: (response, handler) {
-              this.onLog(
-                  'API ${response.statusCode} ${response.requestOptions.path}');
               handler.next(response);
             },
             onError: (error, handler) {
-              // ignore: avoid_print
-              print(
-                  '[API][${error.response?.statusCode}] ${error.requestOptions.method} ${error.requestOptions.baseUrl}${error.requestOptions.path}');
-              this.onLog(
-                  'API ERR ${error.response?.statusCode ?? '-'} ${error.requestOptions.path} ${error.message ?? ''}');
               handler.next(error);
             },
           ),
@@ -57,7 +42,6 @@ class ApiClient {
 
   final Dio dio;
   final TokenStorage tokenStorage;
-  final void Function(String message) onLog;
 
   static String _normalizeBaseUrl(String raw) {
     final normalized = raw.trim().replaceAll(RegExp(r'/+$'), '');
