@@ -1,0 +1,61 @@
+# Runtime and local data
+.env
+/data/
+
+# Dependencies and build outputs
+**/node_modules/
+**/dist/
+**/build/
+Android/.dart_tool/
+Android/.flutter-plugins
+Android/.flutter-plugins-dependencies
+Android/.packages
+Android/.pub-cache/
+Android/.idea/
+Android/*.iml
+Android/android/*.iml
+Android/android/local.properties
+!Android/android/gradlew
+!Android/android/gradlew.bat
+!Android/android/gradle/wrapper/gradle-wrapper.jar
+web/.vite/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+
+# Local automation and generated artifacts
+.playwright-cli/
+.agents/
+.claude/
+.sisyphus/
+output/
+generated-images/
+recovery/
+skills/
+testUi/
+ui_design/
+docs/plans/
+skills-lock.json
+mynote开发文档.md
+
+# Screenshot working sets and logs
+screenshots/evidence/
+screenshots/logs/
+screenshots/snapshots/
+
+# Temporary local debugging files
+before-click-console.txt
+after-menu-click-console.txt
+menu-console.txt
+current-page.md
+after-login.md
+fix.js
+fix_header.js
+fix_sidebar.js
+fix_sidebar2.js
+mobile-*-check.png
+mobile-*.png
+playwright-*.png
+
+api/debug-storage.js

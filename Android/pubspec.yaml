@@ -1,0 +1,37 @@
+name: mynote_android
+description: MyNote Flutter native Android client.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  appflowy_editor: 4.0.0
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^2.5.1
+  go_router: ^14.2.7
+  dio: ^5.7.0
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+  flutter_animate: ^4.5.0
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.3.2
+  intl: ^0.19.0
+  html: ^0.15.6
+  file_picker: ^8.3.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.12
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+
+flutter:
+  uses-material-design: true

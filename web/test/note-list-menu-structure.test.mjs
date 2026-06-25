@@ -1,0 +1,67 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+
+test('NoteList 更多菜单应按旧版结构恢复主要分区和文案', async () => {
+  const source = await readFile(new URL('../src/components/NoteList.jsx', import.meta.url), 'utf8')
+
+  assert.equal(source.includes('复制文本'), true)
+  assert.equal(source.includes('图片分享'), true)
+  assert.equal(source.includes('链接分享'), true)
+  assert.equal(source.includes('复制分享链接'), false)
+  assert.equal(source.includes('加入收藏'), true)
+  assert.equal(source.includes('未分组'), true)
+  assert.equal(source.includes('渐变背景'), true)
+  assert.equal(source.includes('恢复默认'), true)
+  assert.equal(source.includes('自定义颜色'), true)
+  assert.equal(source.includes('type="color"'), true)
+  assert.equal(source.includes('>卡片颜色<'), false)
+  assert.equal(source.includes('置顶'), true)
+  assert.equal(source.includes('删除笔记'), true)
+  assert.equal(source.includes('material-icons-outlined text-[16px] mr-2'), true)
+  assert.equal(source.includes('folder_off'), true)
+  assert.equal(source.includes('check</span>'), true)
+  assert.equal(source.includes('grid grid-cols-4 gap-2'), true)
+  assert.equal(source.includes('min-w-[176px]'), true)
+  assert.equal(source.includes('rounded-[18px]'), true)
+  assert.equal(source.includes('w-5 h-5 rounded-full'), true)
+})
+
+test('NoteList 图片分享与自定义颜色应恢复为真实功能而不是占位 warning', async () => {
+  const source = await readFile(new URL('../src/components/NoteList.jsx', import.meta.url), 'utf8')
+
+  assert.equal(source.includes("showToast('图片分享能力将在下一步继续恢复'"), false)
+  assert.equal(source.includes("showToast('自定义颜色将在下一步继续恢复'"), false)
+  assert.equal(source.includes('html2canvas'), true)
+  assert.equal(source.includes('customColorInputRef'), true)
+  assert.equal(source.includes('handleCustomColorChange'), true)
+  assert.equal(source.includes('handleApplyCustomColor'), false)
+  assert.equal(source.includes('handleCustomColorPickerChange'), false)
+  assert.equal(source.includes('type="color"'), true)
+  assert.equal(source.includes('absolute inset-0 opacity-0 cursor-pointer'), false)
+  assert.equal(source.includes('customColorInputRef.current?.click()'), true)
+})
+
+test('NoteList 卡片视觉应接近旧首页层级结构', async () => {
+  const source = await readFile(new URL('../src/components/NoteList.jsx', import.meta.url), 'utf8')
+  const previewSource = await readFile(new URL('../src/components/NotePreviewCard.jsx', import.meta.url), 'utf8')
+
+  assert.equal(source.includes('h-full'), true)
+  assert.equal(source.includes('bg-[radial-gradient(circle_at_top'), false)
+  assert.equal(source.includes('h-[76px] overflow-hidden'), true)
+  assert.equal(source.includes('border-t border-white/8'), false)
+  assert.equal(source.includes('rounded-[14px]'), true)
+  assert.equal(source.includes('shadow-[0_14px_28px_rgba(31,41,55,0.18)]'), false)
+  assert.equal(source.includes("hasMediaHeader ? 'pt-[82px]' : 'pt-[40px] md:pt-[37px]'"), true)
+  assert.equal(source.includes('px-3 pb-1.5'), true)
+  assert.equal(source.includes('text-[12px]'), true)
+  assert.equal(source.includes('leading-[1.28]'), true)
+  assert.equal(source.includes('desktop-note-card-audioBand'), true)
+  assert.equal(source.includes('desktop-note-card-videoBand'), true)
+  assert.equal(source.includes('bg-white/12'), true)
+  assert.equal(source.includes('min-w-[176px]'), true)
+  assert.equal(source.includes('rounded-[18px] shadow-[0_14px_26px_rgba(31,41,55,0.16)]'), true)
+  assert.equal(source.includes('grid grid-cols-2 gap-1.5 auto-rows-fr w-full expanded-note-board'), true)
+  assert.equal(previewSource.includes('text-[9px] leading-[1.3]'), true)
+  assert.equal(previewSource.includes('text-white/76'), true)
+})

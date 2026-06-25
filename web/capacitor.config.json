@@ -1,0 +1,5 @@
+{
+  "appId": "com.mynote.app",
+  "appName": "MyNote",
+  "webDir": "dist"
+}
