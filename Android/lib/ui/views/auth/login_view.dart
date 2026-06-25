@@ -146,6 +146,15 @@ class _LoginViewState extends ConsumerState<LoginView> {
     }
   }
 
+  Future<void> _enterLocalMode() async {
+    await ref.read(authViewModelProvider.notifier).enterOfflineMode();
+    if (!mounted) return;
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      context.go('/notes');
+    }
+  }
+
   Future<void> _showServerSettings(String? currentUrl) async {
     _serverController.text = currentUrl ?? '';
     await showDialog<void>(
@@ -352,6 +361,19 @@ class _LoginViewState extends ConsumerState<LoginView> {
                                 ),
                               ),
                             ),
+                            if (_isLogin) ...[
+                              const SizedBox(height: 8),
+                              const Text(
+                                '无法连接后端时可以先进入本地模式，重新连接后会自动同步未同步的笔记。',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.4,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ],
                           const SizedBox(height: 26),
                           const _LoginFieldLabel(label: '用户名'),
@@ -452,6 +474,25 @@ class _LoginViewState extends ConsumerState<LoginView> {
                             onTap: () =>
                                 _showServerSettings(serverBaseUrl.valueOrNull),
                           ),
+                          if (_isLogin) ...[
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              key: const Key('login-local-mode-button'),
+                              onPressed:
+                                  authState.loading ? null : _enterLocalMode,
+                              icon: const Icon(Icons.cloud_off_rounded),
+                              label: const Text('使用本地数据'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(44),
+                                foregroundColor: const Color(0xFF2563EB),
+                                side:
+                                    const BorderSide(color: Color(0xFFBFD4FF)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 22),
                           SizedBox(
                             height: 50,

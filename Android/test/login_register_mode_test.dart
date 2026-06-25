@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mynote_android/app/providers.dart';
+import 'package:mynote_android/core/storage/token_storage.dart';
 import 'package:mynote_android/domain/entities/folder_item.dart';
 import 'package:mynote_android/domain/entities/note_item.dart';
 import 'package:mynote_android/domain/entities/user_profile.dart';
@@ -9,8 +10,60 @@ import 'package:mynote_android/domain/repositories/auth_repository.dart';
 import 'package:mynote_android/domain/repositories/folders_repository.dart';
 import 'package:mynote_android/domain/repositories/notes_repository.dart';
 import 'package:mynote_android/ui/views/auth/login_view.dart';
+import 'package:mynote_android/ui/viewmodels/auth_view_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets('LoginView shows local mode action after login failure',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final authRepository = _FailingLoginAuthRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(authRepository),
+          notesRepositoryProvider.overrideWithValue(_NoopNotesRepository()),
+          foldersRepositoryProvider.overrideWithValue(_NoopFoldersRepository()),
+          tokenStorageProvider.overrideWithValue(_FakeTokenStorage()),
+        ],
+        child: const MaterialApp(home: LoginView()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final localModeButton = find.byKey(const Key('login-local-mode-button'));
+    expect(localModeButton, findsOneWidget);
+
+    await tester.enterText(
+        find.widgetWithText(TextFormField, '用户名'), 'offline-user');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, '密码'), 'offline-pass');
+    await tester.scrollUntilVisible(
+      find.widgetWithText(FilledButton, '进入笔记'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '进入笔记'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('使用本地数据'), findsOneWidget);
+    expect(find.textContaining('无法连接后端时可以先进入本地模式'), findsOneWidget);
+
+    await tester.ensureVisible(localModeButton);
+    final button = tester.widget<OutlinedButton>(localModeButton);
+    expect(button.onPressed, isNotNull);
+    button.onPressed!();
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(LoginView)),
+    );
+    expect(container.read(authViewModelProvider).profile?.username, '本地用户');
+    expect(container.read(offlineModeProvider), isTrue);
+  });
+
   testWidgets('LoginView can switch to register mode and submit captcha form',
       (tester) async {
     final authRepository = _FakeRegisterAuthRepository();
@@ -28,6 +81,11 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('切换到注册'),
+      160,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('切换到注册'));
     await tester.pumpAndSettle();
 
@@ -57,6 +115,19 @@ void main() {
     expect(authRepository.registeredCaptchaId, 'captcha-1');
     expect(authRepository.registeredCaptchaText, '12');
   });
+}
+
+class _FailingLoginAuthRepository extends _FakeRegisterAuthRepository {
+  @override
+  Future<void> login(
+      {required String username, required String password}) async {
+    throw Exception('无法连接服务器');
+  }
+}
+
+class _FakeTokenStorage extends TokenStorage {
+  @override
+  Future<void> clearToken() async {}
 }
 
 class _FakeRegisterAuthRepository implements AuthRepository {

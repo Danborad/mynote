@@ -1,12 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mynote_android/app/providers.dart';
 import 'package:mynote_android/core/storage/server_settings_storage.dart';
+import 'package:mynote_android/core/storage/token_storage.dart';
 import 'package:mynote_android/domain/entities/user_profile.dart';
 import 'package:mynote_android/domain/repositories/auth_repository.dart';
 import 'package:mynote_android/ui/viewmodels/auth_view_model.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('restoreSession loads server base url before reading token/profile',
       () async {
     final container = ProviderContainer(
@@ -24,6 +28,25 @@ void main() {
     expect(restored, isTrue);
     expect(container.read(serverBaseUrlProvider).valueOrNull,
         'http://192.168.31.88:3665');
+  });
+
+  test('enterOfflineMode creates local profile and enables offline mode',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer(
+      overrides: [
+        authRepositoryProvider.overrideWithValue(_NoTokenAuthRepository()),
+        tokenStorageProvider.overrideWithValue(_FakeTokenStorage()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final profile =
+        await container.read(authViewModelProvider.notifier).enterOfflineMode();
+
+    expect(profile.username, '本地用户');
+    expect(container.read(authViewModelProvider).profile, profile);
+    expect(container.read(offlineModeProvider), isTrue);
   });
 }
 
@@ -82,4 +105,14 @@ class _FakeRestoreAuthRepository implements AuthRepository {
     required String filename,
   }) async =>
       null;
+}
+
+class _NoTokenAuthRepository extends _FakeRestoreAuthRepository {
+  @override
+  Future<String?> readToken() async => null;
+}
+
+class _FakeTokenStorage extends TokenStorage {
+  @override
+  Future<void> clearToken() async {}
 }

@@ -72,6 +72,20 @@ class AuthViewModel extends StateNotifier<AuthState> {
     }
   }
 
+  Future<UserProfile> enterOfflineMode() async {
+    await ref.read(offlineModeProvider.notifier).setOfflineMode(true);
+    await ref.read(tokenStorageProvider).clearToken();
+    ref.read(apiClientProvider).dio.options.headers.remove('Authorization');
+    const profile = UserProfile(
+      id: 'local-user',
+      username: '本地用户',
+      email: null,
+      isAdmin: false,
+    );
+    state = const AuthState(profile: profile);
+    return profile;
+  }
+
   Future<void> updateSettings({
     String? username,
     int? trashRetentionDays,
