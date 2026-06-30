@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:mynote_android/core/network/server_url.dart';
 import 'package:mynote_android/core/storage/token_storage.dart';
 
 class ApiClient {
@@ -9,7 +10,8 @@ class ApiClient {
   })  : dio = dio ??
             Dio(
               BaseOptions(
-                baseUrl: _normalizeBaseUrl(baseUrl ?? 'http://127.0.0.1:3665'),
+                baseUrl:
+                    normalizeServerBaseUrl(baseUrl ?? 'http://127.0.0.1:3665'),
                 connectTimeout: const Duration(seconds: 15),
                 receiveTimeout: const Duration(seconds: 15),
                 headers: const {'Content-Type': 'application/json'},
@@ -42,12 +44,4 @@ class ApiClient {
 
   final Dio dio;
   final TokenStorage tokenStorage;
-
-  static String _normalizeBaseUrl(String raw) {
-    final normalized = raw.trim().replaceAll(RegExp(r'/+$'), '');
-    if (normalized.endsWith('/api')) {
-      return normalized;
-    }
-    return '$normalized/api';
-  }
 }

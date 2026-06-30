@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:mynote_android/app/providers.dart';
 import 'package:mynote_android/app/theme/app_theme.dart';
+import 'package:mynote_android/core/network/server_url.dart';
 import 'package:mynote_android/core/storage/note_font_size_storage.dart';
 import 'package:mynote_android/app/utils/note_preview.dart';
 import 'package:mynote_android/domain/entities/folder_item.dart';
@@ -110,9 +111,11 @@ class _NotesBoardViewState extends ConsumerState<NotesBoardView> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: palette.panelBackground,
+      // Use the live server address so IPv6/domain setups keep working
       drawer: _NotesDrawer(
         username: user?.username ?? '用户',
         avatarUrl: user?.avatar,
+        serverBaseUrl: ref.watch(serverBaseUrlProvider).valueOrNull,
         notesCount: state.notesCount,
         favoritesCount: state.favoritesCount,
         trashCount: state.trashCount,
@@ -375,6 +378,7 @@ class _WorkspaceBody extends ConsumerWidget {
         _HeaderSection(
           onMenuTap: () => scaffoldKey.currentState?.openDrawer(),
           avatarUrl: user?.avatar,
+          serverBaseUrl: ref.watch(serverBaseUrlProvider).valueOrNull,
           username: user?.username ?? 'U',
           titleLabel: _headerLabelForView(state.currentView),
           searching: searching,
@@ -712,6 +716,7 @@ class _HeaderSection extends StatelessWidget {
   const _HeaderSection({
     required this.onMenuTap,
     required this.avatarUrl,
+    required this.serverBaseUrl,
     required this.username,
     required this.titleLabel,
     required this.searching,
@@ -724,6 +729,7 @@ class _HeaderSection extends StatelessWidget {
 
   final VoidCallback onMenuTap;
   final String? avatarUrl;
+  final String? serverBaseUrl;
   final String username;
   final String titleLabel;
   final bool searching;
@@ -735,7 +741,7 @@ class _HeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedUrl = _resolveAvatarUrl(avatarUrl);
+    final resolvedUrl = _resolveAvatarUrl(avatarUrl, serverBaseUrl);
 
     final palette = context.palette;
     final topInset = MediaQuery.paddingOf(context).top;
@@ -977,6 +983,7 @@ class _NotesDrawer extends StatelessWidget {
   const _NotesDrawer({
     required this.username,
     required this.avatarUrl,
+    required this.serverBaseUrl,
     required this.notesCount,
     required this.favoritesCount,
     required this.trashCount,
@@ -994,6 +1001,7 @@ class _NotesDrawer extends StatelessWidget {
 
   final String username;
   final String? avatarUrl;
+  final String? serverBaseUrl;
   final int notesCount;
   final int favoritesCount;
   final int trashCount;
@@ -1010,7 +1018,7 @@ class _NotesDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedUrl = _resolveAvatarUrl(avatarUrl);
+    final resolvedUrl = _resolveAvatarUrl(avatarUrl, serverBaseUrl);
     final drawerWidth =
         (MediaQuery.sizeOf(context).width * 0.64).clamp(236.0, 280.0);
 
@@ -2488,6 +2496,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
               children: [
                 _AccountSettingsCard(
                   user: widget.user,
+                  serverBaseUrl: ref.watch(serverBaseUrlProvider).valueOrNull,
                   onRename: () => _showUsernameDialog(context),
                   onAvatar: () => _showAvatarDialog(context),
                 ),
@@ -2834,11 +2843,13 @@ class _AboutSettingRow extends StatelessWidget {
 class _AccountSettingsCard extends StatelessWidget {
   const _AccountSettingsCard({
     required this.user,
+    required this.serverBaseUrl,
     required this.onRename,
     required this.onAvatar,
   });
 
   final UserProfile? user;
+  final String? serverBaseUrl;
   final VoidCallback onRename;
   final VoidCallback onAvatar;
 
@@ -2846,7 +2857,7 @@ class _AccountSettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final username = user?.username ?? '用户';
-    final resolvedUrl = _resolveAvatarUrl(user?.avatar);
+    final resolvedUrl = _resolveAvatarUrl(user?.avatar, serverBaseUrl);
 
     return _SettingsCard(
       title: '',
@@ -3292,14 +3303,18 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-String? _resolveAvatarUrl(String? avatarUrl) {
+String? _resolveAvatarUrl(String? avatarUrl, String? serverBaseUrl) {
   if (avatarUrl == null || avatarUrl.isEmpty) {
     return null;
   }
   if (avatarUrl.startsWith('http')) {
     return avatarUrl;
   }
-  return 'http://192.168.31.63:3665$avatarUrl';
+  final baseUrl = serverBaseUrl?.trim();
+  if (baseUrl == null || baseUrl.isEmpty) {
+    return avatarUrl;
+  }
+  return resolveServerAssetUrl(baseUrl: baseUrl, assetPath: avatarUrl);
 }
 
 String _formatCardTimestamp(DateTime? date) {

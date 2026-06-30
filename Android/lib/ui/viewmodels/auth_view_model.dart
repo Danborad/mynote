@@ -36,6 +36,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
       {required String username, required String password}) async {
     state = state.copyWith(loading: true, errorMessage: null);
     try {
+      await ref.read(serverBaseUrlProvider.notifier).load();
       final authRepository = ref.read(authRepositoryProvider);
       await authRepository.login(username: username, password: password);
       final profile = await authRepository.getProfile();

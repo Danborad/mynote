@@ -219,7 +219,7 @@ Android 客户端位于 [Android/](Android/)：
 APK 校验：
 
 ```text
-SHA256  c305d035fd6fad25760bb7c4dba4061813ef3765e8136f7c82083ded2194163d
+SHA256  a6832f128dff4b1084fd09ba47fe7fd15ef663dc92e9fff14015a1dda6536c5a
 ```
 
 ## Docker Hub 镜像
