@@ -14,6 +14,14 @@ String resolveServerAssetUrl({
   final trimmedPath = assetPath.trim();
   if (trimmedPath.isEmpty) return '';
   if (trimmedPath.startsWith('http://') || trimmedPath.startsWith('https://')) {
+    final storagePath = storageServerAssetPath(
+      baseUrl: trimmedBase,
+      assetUrl: trimmedPath,
+    );
+    if (storagePath.startsWith('/uploads/')) {
+      if (trimmedBase.isEmpty) return storagePath;
+      return '$trimmedBase$storagePath';
+    }
     return trimmedPath;
   }
   final path = trimmedPath.startsWith('/') ? trimmedPath : '/$trimmedPath';
@@ -52,7 +60,8 @@ String resolveServerAssetReferences({
 }) {
   if (html.trim().isEmpty) return html;
   return html.replaceAllMapped(
-    RegExp(r'''\b(src|href)=(["'])(/uploads/[^"']+)\2''', caseSensitive: false),
+    RegExp(r'''\b(src|href)=(["'])((?:https?://[^"']+)?/uploads/[^"']+)\2''',
+        caseSensitive: false),
     (match) {
       final name = match.group(1)!;
       final quote = match.group(2)!;

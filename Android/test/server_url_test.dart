@@ -30,6 +30,16 @@ void main() {
     );
   });
 
+  test('old absolute upload urls are rebased to the current server', () {
+    expect(
+      resolveServerAssetUrl(
+        baseUrl: 'http://192.168.31.63:3665',
+        assetPath: 'https://old-ipv6.example.com/uploads/attachments/a.png',
+      ),
+      'http://192.168.31.63:3665/uploads/attachments/a.png',
+    );
+  });
+
   test('asset references are stored relative and resolved for display', () {
     const baseUrl = 'https://notes.example.com';
     const stored = '<p><img src="/uploads/attachments/a.png" alt="image"></p>';
@@ -45,6 +55,19 @@ void main() {
         baseUrl: baseUrl,
       ),
       stored,
+    );
+  });
+
+  test('old absolute upload references are resolved for display', () {
+    const html =
+        '<p><img src="https://old.example.com/uploads/attachments/a.png" alt="image"></p>';
+
+    expect(
+      resolveServerAssetReferences(
+        html: html,
+        baseUrl: 'https://notes.example.com',
+      ),
+      '<p><img src="https://notes.example.com/uploads/attachments/a.png" alt="image"></p>',
     );
   });
 }
