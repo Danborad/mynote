@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const GITHUB_RELEASE_URL = 'https://api.github.com/repos/Danborad/mynote/releases/latest';
 
 @Controller('version')
@@ -19,7 +19,7 @@ export class VersionController {
             const response = await fetch(GITHUB_RELEASE_URL, {
                 headers: {
                     Accept: 'application/vnd.github+json',
-                    'User-Agent': 'MyNote/1.0.0',
+                    'User-Agent': 'MyNote/1.0.1',
                 },
             });
 

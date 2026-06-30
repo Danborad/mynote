@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mynote_android/app/providers.dart';
 import 'package:mynote_android/app/utils/note_preview.dart';
@@ -11,6 +12,8 @@ import 'package:mynote_android/domain/repositories/notes_repository.dart';
 
 typedef EditorImageUrlProvider = Future<String?> Function();
 typedef EditorMediaUrlProvider = Future<String?> Function(EditorMediaType type);
+typedef EditorUploadMediaProvider = Future<String?> Function(
+    EditorMediaType type, String path);
 
 enum EditorMediaType {
   image,
@@ -76,6 +79,7 @@ class EditorViewModel extends StateNotifier<EditorViewState> {
     EditorAutosaveService? autosaveService,
     EditorImageUrlProvider? imageUrlProvider,
     EditorMediaUrlProvider? mediaUrlProvider,
+    EditorUploadMediaProvider? uploadMediaProvider,
     this.debounceDuration = const Duration(milliseconds: 300),
   }) : super(
           EditorViewState(
@@ -89,6 +93,8 @@ class EditorViewModel extends StateNotifier<EditorViewState> {
     _autosaveService = autosaveService ?? read(editorAutosaveServiceProvider);
     _imageUrlProvider = imageUrlProvider ?? read(editorImageUrlProvider);
     _mediaUrlProvider = mediaUrlProvider ?? read(editorMediaUrlProvider);
+    _uploadMediaProvider =
+        uploadMediaProvider ?? read(editorUploadMediaProvider);
   }
 
   final T Function<T>(ProviderListenable<T>) read;
@@ -97,6 +103,7 @@ class EditorViewModel extends StateNotifier<EditorViewState> {
   late final EditorAutosaveService _autosaveService;
   late final EditorImageUrlProvider? _imageUrlProvider;
   late final EditorMediaUrlProvider? _mediaUrlProvider;
+  late final EditorUploadMediaProvider? _uploadMediaProvider;
 
   NotesRepository get _notesRepository => read(notesRepositoryProvider);
   EditorHtmlMapper get _mapper => read(editorHtmlMapperProvider);
@@ -184,6 +191,12 @@ class EditorViewModel extends StateNotifier<EditorViewState> {
       return requestImageUrl();
     }
     return null;
+  }
+
+  Future<String?> uploadMedia(EditorMediaType type, String path) async {
+    final provider = _uploadMediaProvider;
+    if (provider == null) return null;
+    return provider(type, path);
   }
 
   void applyFormatCapability(EditorFormatCapability capability) {
@@ -363,6 +376,41 @@ final editorImageUrlProvider = Provider<EditorImageUrlProvider?>((ref) => () {
 final editorMediaUrlProvider = Provider<EditorMediaUrlProvider?>((ref) {
   return _pickEditorMediaUrl;
 });
+
+final editorUploadMediaProvider =
+    Provider<EditorUploadMediaProvider?>((ref) => (type, path) async {
+          final fileName = path.split(RegExp(r'[\\/]+')).last.trim();
+          if (fileName.isEmpty) {
+            return null;
+          }
+
+          try {
+            final formData = FormData.fromMap({
+              'file': await MultipartFile.fromFile(
+                path,
+                filename: fileName,
+              ),
+            });
+
+            final response =
+                await ref.read(apiClientProvider).dio.post<dynamic>(
+                      '/files/upload',
+                      data: formData,
+                      options: Options(contentType: 'multipart/form-data'),
+                    );
+
+            final data = response.data;
+            if (data is Map<String, dynamic>) {
+              final url = data['url']?.toString().trim();
+              if (url != null && url.isNotEmpty) {
+                return url;
+              }
+            }
+            return null;
+          } catch (_) {
+            return null;
+          }
+        });
 
 Future<String?> _pickEditorMediaUrl(EditorMediaType type) async {
   final pickerType = switch (type) {

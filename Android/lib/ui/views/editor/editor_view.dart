@@ -9,6 +9,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:mynote_android/app/providers.dart';
 import 'package:mynote_android/app/theme/app_theme.dart';
 import 'package:mynote_android/app/utils/note_preview.dart';
+import 'package:mynote_android/core/network/server_url.dart';
 import 'package:mynote_android/domain/entities/editor_format_capability.dart';
 import 'package:mynote_android/ui/utils/app_snack_bar.dart';
 import 'package:mynote_android/ui/utils/share_card_image.dart';
@@ -580,7 +581,10 @@ class _EditorViewState extends ConsumerState<EditorView> {
     try {
       final state = ref.read(editorViewModelProvider(widget.noteId));
       final html = state.document.html;
-      final preview = extractPreviewData(html);
+      final preview = resolvePreviewDataUrls(
+        extractPreviewData(html),
+        serverBaseUrl: ref.read(serverBaseUrlProvider).valueOrNull,
+      );
       final bytes = await renderShareCardImage(
         title: state.document.title.trim().isEmpty
             ? 'MyNote'
@@ -795,27 +799,43 @@ class _EditorViewState extends ConsumerState<EditorView> {
     );
     if (type == null) return;
 
-    final url = await viewModel.requestMediaUrl(type);
-    if (url == null || url.trim().isEmpty) {
+    final pickedPath = await viewModel.requestMediaUrl(type);
+    if (pickedPath == null || pickedPath.trim().isEmpty) {
       return;
     }
 
-    final html = _mediaHtml(type, url.trim());
+    final uploadedPath = await viewModel.uploadMedia(type, pickedPath.trim());
+    if (uploadedPath == null || uploadedPath.trim().isEmpty) {
+      return;
+    }
+
+    await ref.read(serverBaseUrlProvider.notifier).load();
+    final serverBaseUrl = ref.read(serverBaseUrlProvider).valueOrNull ?? '';
+    final storageUrl = storageServerAssetPath(
+      baseUrl: serverBaseUrl,
+      assetUrl: uploadedPath.trim(),
+    );
+    if (storageUrl.trim().isEmpty) {
+      return;
+    }
+    final displayUrl = resolveServerAssetUrl(
+      baseUrl: serverBaseUrl,
+      assetPath: storageUrl,
+    );
+    final html = _mediaHtml(type, storageUrl);
     final editorState = _editorState;
     if (type == EditorMediaType.image && editorState != null) {
       final beforeHtml = _documentToEditorHtml(editorState.document);
       await _ensureCollapsedSelection(editorState);
-      await editorState.insertImageNode(url.trim());
+      await editorState.insertImageNode(displayUrl);
       final afterHtml = _documentToEditorHtml(editorState.document);
       viewModel.updateHtmlFromEditor(
-        _normalizeEditorGeneratedHtml(
+        _storeCurrentServerAssetReferences(_normalizeEditorGeneratedHtml(
           afterHtml == beforeHtml ? '$beforeHtml$html' : afterHtml,
-        ),
+        )),
       );
     } else {
-      viewModel.updateHtmlFromEditor(
-        _appendHtmlBlock(currentHtml, html),
-      );
+      viewModel.updateHtmlFromEditor(_appendHtmlBlock(currentHtml, html));
     }
     await viewModel.save();
   }
@@ -846,7 +866,11 @@ class _EditorViewState extends ConsumerState<EditorView> {
     _editorSubscription?.cancel();
     _editorState?.dispose();
 
-    final html = state.document.html.trim();
+    final serverBaseUrl = ref.read(serverBaseUrlProvider).valueOrNull ?? '';
+    final html = resolveServerAssetReferences(
+      html: state.document.html.trim(),
+      baseUrl: serverBaseUrl,
+    );
     final parseDocument = ref.read(editorDocumentParserProvider);
     try {
       final document = html.isEmpty
@@ -858,7 +882,8 @@ class _EditorViewState extends ConsumerState<EditorView> {
         final nextHtml = _normalizeEditorGeneratedHtml(
           _documentToEditorHtml(editorState.document),
         );
-        if (nextHtml == _boundHtml) {
+        final nextStoredHtml = _storeCurrentServerAssetReferences(nextHtml);
+        if (nextStoredHtml == _boundHtml) {
           return;
         }
         _syncHtmlFromEditor(editorState, viewModel);
@@ -877,8 +902,9 @@ class _EditorViewState extends ConsumerState<EditorView> {
   void _syncHtmlFromEditor(EditorState editorState, EditorViewModel viewModel) {
     final html = _normalizeEditorGeneratedHtml(
         _documentToEditorHtml(editorState.document));
-    _boundHtml = html;
-    viewModel.updateHtmlFromEditor(html);
+    final storedHtml = _storeCurrentServerAssetReferences(html);
+    _boundHtml = storedHtml;
+    viewModel.updateHtmlFromEditor(storedHtml);
   }
 
   String _documentToEditorHtml(Document document) {
@@ -904,6 +930,13 @@ class _EditorViewState extends ConsumerState<EditorView> {
         }
         return '<img src="$url" alt="image">';
       },
+    );
+  }
+
+  String _storeCurrentServerAssetReferences(String html) {
+    return storeServerAssetReferences(
+      html: html,
+      baseUrl: ref.read(serverBaseUrlProvider).valueOrNull ?? '',
     );
   }
 

@@ -29,4 +29,22 @@ void main() {
       'http://[2001:db8::1]:3665/uploads/avatar.png',
     );
   });
+
+  test('asset references are stored relative and resolved for display', () {
+    const baseUrl = 'https://notes.example.com';
+    const stored = '<p><img src="/uploads/attachments/a.png" alt="image"></p>';
+
+    expect(
+      resolveServerAssetReferences(html: stored, baseUrl: baseUrl),
+      '<p><img src="https://notes.example.com/uploads/attachments/a.png" alt="image"></p>',
+    );
+    expect(
+      storeServerAssetReferences(
+        html:
+            '<p><img src="https://notes.example.com/uploads/attachments/a.png" alt="image"></p>',
+        baseUrl: baseUrl,
+      ),
+      stored,
+    );
+  });
 }

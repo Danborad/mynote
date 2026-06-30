@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mynote_android/core/network/server_url.dart';
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:mynote_android/app/providers.dart';
 import 'package:mynote_android/data/mappers/editor_html_mapper.dart';
@@ -10,10 +11,14 @@ import 'package:mynote_android/domain/entities/note_item.dart';
 import 'package:mynote_android/domain/repositories/notes_repository.dart';
 import 'package:mynote_android/ui/viewmodels/editor_view_model.dart';
 import 'package:mynote_android/ui/views/editor/editor_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('more actions can be dismissed by tapping outside',
       (tester) async {
+    SharedPreferences.setMockInitialValues(
+      {'server_base_url': 'https://notes.example.com'},
+    );
     final repository = _FakeEditorNotesRepository();
     final autosave = EditorAutosaveService(
       debounceDuration: const Duration(milliseconds: 10),
@@ -53,6 +58,9 @@ void main() {
 
   testWidgets('editor toolbar exposes media insert options and inserts media',
       (tester) async {
+    SharedPreferences.setMockInitialValues(
+      {'server_base_url': 'https://notes.example.com'},
+    );
     final repository = _FakeEditorNotesRepository();
     final autosave = EditorAutosaveService(
       debounceDuration: const Duration(milliseconds: 10),
@@ -66,9 +74,22 @@ void main() {
           editorAutosaveServiceProvider.overrideWithValue(autosave),
           editorMediaUrlProvider.overrideWithValue(
             (type) async => switch (type) {
-              EditorMediaType.image => 'https://example.com/a.png',
-              EditorMediaType.audio => 'https://example.com/a.mp3',
-              EditorMediaType.video => 'https://example.com/a.mp4',
+              EditorMediaType.image => '/tmp/a.png',
+              EditorMediaType.audio => '/tmp/a.mp3',
+              EditorMediaType.video => '/tmp/a.mp4',
+            },
+          ),
+          editorUploadMediaProvider.overrideWithValue(
+            (type, path) async => switch (type) {
+              EditorMediaType.image => resolveServerAssetUrl(
+                  baseUrl: 'https://notes.example.com',
+                  assetPath: '/uploads/attachments/a.png'),
+              EditorMediaType.audio => resolveServerAssetUrl(
+                  baseUrl: 'https://notes.example.com',
+                  assetPath: '/uploads/attachments/a.mp3'),
+              EditorMediaType.video => resolveServerAssetUrl(
+                  baseUrl: 'https://notes.example.com',
+                  assetPath: '/uploads/attachments/a.mp4'),
             },
           ),
         ],
@@ -101,16 +122,20 @@ void main() {
     expect(find.text('视频'), findsOneWidget);
 
     await tester.tap(find.text('音频'));
-    await tester.pump(const Duration(milliseconds: 30));
+    await tester.pumpAndSettle();
     expect(repository.lastSavedHtml, contains('audio-player-component'));
+    expect(repository.lastSavedHtml, contains('/uploads/attachments/a.mp3'));
+    expect(repository.lastSavedHtml, isNot(contains('/tmp/a.mp3')));
 
     await tester.tap(find.byTooltip('更多'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('插入媒体'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('视频'));
-    await tester.pump(const Duration(milliseconds: 30));
+    await tester.pumpAndSettle();
     expect(repository.lastSavedHtml, contains('video-player-component'));
+    expect(repository.lastSavedHtml, contains('/uploads/attachments/a.mp4'));
+    expect(repository.lastSavedHtml, isNot(contains('/tmp/a.mp4')));
   });
 }
 

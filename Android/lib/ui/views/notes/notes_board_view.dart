@@ -22,7 +22,7 @@ import 'package:mynote_android/ui/views/editor/editor_view.dart';
 import 'package:mynote_android/ui/widgets/folder_picker_sheet.dart';
 import 'package:mynote_android/ui/widgets/mynote_wordmark.dart';
 
-const String _appVersion = '1.0.0';
+const String _appVersion = '1.0.1';
 const String _githubUrl = 'https://github.com/Danborad/mynote';
 const String _githubLatestReleaseApi =
     'https://api.github.com/repos/Danborad/mynote/releases/latest';
@@ -1665,7 +1665,10 @@ class _NoteCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final preview = extractPreviewData(note.content);
+    final preview = resolvePreviewDataUrls(
+      extractPreviewData(note.content),
+      serverBaseUrl: ref.watch(serverBaseUrlProvider).valueOrNull,
+    );
     final title = deriveDisplayTitle(note, preview);
     final subtitle = buildPreviewText(preview, title);
     final hasTitle = title.trim().isNotEmpty;
@@ -1988,6 +1991,7 @@ class _CardMenuButton extends ConsumerWidget {
       case 'image_share':
         await _shareNoteImage(
           context: context,
+          serverBaseUrl: ref.read(serverBaseUrlProvider).valueOrNull,
           background: palette.cardBackground,
           titleColor: palette.primaryText,
           bodyColor: palette.secondaryText,
@@ -2036,12 +2040,16 @@ class _CardMenuButton extends ConsumerWidget {
 
   Future<void> _shareNoteImage({
     required BuildContext context,
+    required String? serverBaseUrl,
     required Color background,
     required Color titleColor,
     required Color bodyColor,
     required Color footerColor,
   }) async {
-    final preview = extractPreviewData(note.content);
+    final preview = resolvePreviewDataUrls(
+      extractPreviewData(note.content),
+      serverBaseUrl: serverBaseUrl,
+    );
     final title = deriveDisplayTitle(note, preview);
     final body = buildPreviewText(preview, title);
     final bytes = await renderShareCardImage(
@@ -2231,7 +2239,10 @@ class _SharedLinkCard extends ConsumerWidget {
     final expiresAt = link['expiresAt']?.toString();
     final expired = link['expired'] == true;
     final title = '${link['title'] ?? '无标题笔记'}';
-    final preview = extractPreviewData(link['content']?.toString() ?? '');
+    final preview = resolvePreviewDataUrls(
+      extractPreviewData(link['content']?.toString() ?? ''),
+      serverBaseUrl: ref.watch(serverBaseUrlProvider).valueOrNull,
+    );
     final previewSubtitle = buildPreviewText(preview, title);
 
     return Container(

@@ -1,4 +1,5 @@
 import 'package:mynote_android/domain/entities/note_item.dart';
+import 'package:mynote_android/core/network/server_url.dart';
 
 class NotePreviewData {
   const NotePreviewData({
@@ -68,6 +69,22 @@ NotePreviewData extractPreviewData(String html) {
     image: imageUrl,
     audio: hasAudio,
     video: hasVideo,
+  );
+}
+
+NotePreviewData resolvePreviewDataUrls(
+  NotePreviewData preview, {
+  required String? serverBaseUrl,
+}) {
+  final baseUrl = serverBaseUrl?.trim() ?? '';
+  if (baseUrl.isEmpty || preview.image == null || preview.image!.isEmpty) {
+    return preview;
+  }
+  return NotePreviewData(
+    text: preview.text,
+    image: resolveServerAssetUrl(baseUrl: baseUrl, assetPath: preview.image!),
+    audio: preview.audio,
+    video: preview.video,
   );
 }
 
