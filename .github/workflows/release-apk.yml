@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: Release tag, for example v1.0.0
+        description: Release tag, for example v1.0.3
         required: true
-        default: v1.0.0
+        default: v1.0.3
 
 permissions:
   contents: write
@@ -33,9 +33,15 @@ jobs:
           fi
 
       - name: Verify APK
+        id: apk
+        shell: bash
         run: |
-          test -f releases/mynote-android-v1.0.0.apk
-          sha256sum releases/mynote-android-v1.0.0.apk
+          apk_path="releases/mynote-android-${{ steps.release.outputs.tag }}.apk"
+          test -f "$apk_path"
+          sha256="$(sha256sum "$apk_path" | awk '{print $1}')"
+          echo "path=$apk_path" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+          echo "$sha256  $apk_path"
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
@@ -46,5 +52,5 @@ jobs:
             MyNote Android APK.
 
             SHA256:
-            `ffcba3c8881fd1da6b70417c9754d2ba8c571518db9fb3a24385428b5c3d33d3`
-          files: releases/mynote-android-v1.0.0.apk
+            `${{ steps.apk.outputs.sha256 }}`
+          files: ${{ steps.apk.outputs.path }}
