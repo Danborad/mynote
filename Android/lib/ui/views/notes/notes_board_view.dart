@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:mynote_android/app/app_version.dart';
 import 'package:mynote_android/app/providers.dart';
 import 'package:mynote_android/app/theme/app_theme.dart';
 import 'package:mynote_android/core/network/server_url.dart';
@@ -22,10 +25,9 @@ import 'package:mynote_android/ui/views/editor/editor_view.dart';
 import 'package:mynote_android/ui/widgets/folder_picker_sheet.dart';
 import 'package:mynote_android/ui/widgets/mynote_wordmark.dart';
 
-const String _appVersion = '1.0.1';
-const String _githubUrl = 'https://github.com/Danborad/mynote';
-const String _githubLatestReleaseApi =
-    'https://api.github.com/repos/Danborad/mynote/releases/latest';
+const String _appVersion = appVersion;
+const String _githubUrl = appGithubUrl;
+const String _githubLatestReleaseApi = appGithubLatestReleaseApi;
 
 String _normalizeVersion(String version) => version
     .replaceFirst(RegExp(r'^v', caseSensitive: false), '')
@@ -60,29 +62,53 @@ class NotesBoardView extends ConsumerStatefulWidget {
   ConsumerState<NotesBoardView> createState() => _NotesBoardViewState();
 }
 
-class _NotesBoardViewState extends ConsumerState<NotesBoardView> {
+class _NotesBoardViewState extends ConsumerState<NotesBoardView>
+    with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   final Set<String> _selectedNoteIds = <String>{};
+  Timer? _refreshTimer;
   bool _searching = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future<void>.microtask(
       () async {
         await ref.read(serverBaseUrlProvider.notifier).load();
         await ref.read(notesBoardViewModelProvider.notifier).load();
       },
     );
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _refreshVisibleWorkspace();
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     _searchFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshVisibleWorkspace();
+    }
+  }
+
+  void _refreshVisibleWorkspace() {
+    if (!mounted || _searching) return;
+    final state = ref.read(notesBoardViewModelProvider);
+    if (state.loading || state.currentView == NotesWorkspaceView.editor) {
+      return;
+    }
+    ref.read(notesBoardViewModelProvider.notifier).reloadCurrent();
   }
 
   @override

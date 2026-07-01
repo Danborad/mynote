@@ -105,7 +105,7 @@ String deriveDisplayTitle(NoteItem note, NotePreviewData preview) {
   if (preview.image != null) return '图片笔记';
   if (preview.video) return '视频笔记';
   if (preview.audio) return '音频笔记';
-  return '';
+  return title.isNotEmpty ? title : '';
 }
 
 String buildPreviewText(NotePreviewData preview, String displayTitle) {

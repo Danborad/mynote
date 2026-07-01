@@ -45,10 +45,12 @@ class _RoutedEditorView extends ConsumerWidget {
     return EditorView(
       noteId: noteId,
       onBack: () async {
-        ref.read(notesBoardViewModelProvider.notifier).leaveEditorImmediately();
+        final boardViewModel = ref.read(notesBoardViewModelProvider.notifier);
+        boardViewModel.leaveEditorImmediately();
         if (context.mounted) {
           context.go('/notes');
         }
+        await boardViewModel.backToBoard();
       },
     );
   }

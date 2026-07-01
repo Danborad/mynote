@@ -1,6 +1,6 @@
 {
     "name": "mynote-api",
-  "version": "1.0.2",
+  "version": "1.0.3",
     "description": "MyNote Backend API",
     "scripts": {
         "build": "nest build",

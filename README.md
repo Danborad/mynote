@@ -76,7 +76,7 @@ http://localhost:3665
 ```yaml
 services:
   app:
-    image: ${MYNOTE_IMAGE:-zhong12138/mynote:latest}
+    image: ${MYNOTE_IMAGE:-zhong12138/mynote:1.0.3}
     container_name: mynote
     ports:
       - "3665:3665"
@@ -130,7 +130,7 @@ docker compose -f docker-compose.simple.yml up -d
 ```yaml
 services:
   app:
-    image: zhong12138/mynote:latest
+    image: zhong12138/mynote:1.0.3
     ports:
       - "3665:3665"
     environment:
@@ -164,7 +164,7 @@ services:
 
 常用变量见 [.env.example](.env.example)：
 
-- `MYNOTE_IMAGE`：默认镜像，通常为 `zhong12138/mynote:latest`
+- `MYNOTE_IMAGE`：默认镜像，通常为 `zhong12138/mynote:1.0.3`
 - `DB_PASSWORD`：PostgreSQL 密码
 - `JWT_SECRET`：登录 Token 签名密钥，生产环境请改成高强度随机字符串
 - `ALLOW_REGISTRATION`：是否允许用户注册
@@ -211,15 +211,15 @@ Android 客户端位于 [Android/](Android/)：
 - 支持笔记详情页字体大小设置
 - 支持图片、音频、视频媒体插入
 - 支持离线模式与重新连接后的同步流程
-- 当前版本：`1.0.2`
-- APK 下载：[releases/mynote-android-v1.0.2.apk](releases/mynote-android-v1.0.2.apk)
+- 当前版本：`1.0.3`
+- APK 下载：[releases/mynote-android-v1.0.3.apk](releases/mynote-android-v1.0.3.apk)
 
 更多说明见 [Android/README.md](Android/README.md)。
 
 APK 校验：
 
 ```text
-SHA256  fdc77b2826434e98d347cd66a3d026011621b8a64e6304c338efb209f26ef663
+SHA256  dec7d4d192e168a140cf0d5d40ea056bc0c7371df11e0c18db7ca54817809b6e
 ```
 
 ## Docker Hub 镜像
@@ -228,6 +228,16 @@ SHA256  fdc77b2826434e98d347cd66a3d026011621b8a64e6304c338efb209f26ef663
 
 ```text
 zhong12138/mynote
+```
+
+推荐固定版本部署，避免本地服务继续跑旧镜像：
+
+```yaml
+services:
+  app:
+    image: zhong12138/mynote:1.0.3
+    ports:
+      - "3665:3665"
 ```
 
 支持架构：

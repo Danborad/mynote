@@ -106,6 +106,32 @@ export function NotesProvider({ children }) {
         loadFolders();
     }, [currentView, currentFolderId, loadNotes, loadFolders, authLoading, isCloudSession]);
 
+    useEffect(() => {
+        if (authLoading || !user) return undefined;
+
+        const refreshVisibleNotes = () => {
+            if (document.visibilityState !== 'visible') return;
+            loadNotes();
+            loadFolders();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                refreshVisibleNotes();
+            }
+        };
+
+        window.addEventListener('focus', refreshVisibleNotes);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        const timer = window.setInterval(refreshVisibleNotes, 15000);
+
+        return () => {
+            window.removeEventListener('focus', refreshVisibleNotes);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.clearInterval(timer);
+        };
+    }, [authLoading, user, loadNotes, loadFolders]);
+
     // 创建笔记
     const createNote = async (data = {}) => {
         try {

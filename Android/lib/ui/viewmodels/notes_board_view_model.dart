@@ -179,10 +179,12 @@ class NotesBoardViewModel extends StateNotifier<NotesBoardState> {
             content: '',
             folderId: folderId ?? state.selectedFolderId,
           );
+      final currentNotes = state.notes.where((item) => item.id != note.id);
       state = state.copyWith(
         loading: false,
         currentView: NotesWorkspaceView.editor,
         selectedNote: note,
+        notes: [note, ...currentNotes],
       );
       return note;
     } catch (error) {

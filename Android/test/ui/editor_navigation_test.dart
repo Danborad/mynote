@@ -81,6 +81,7 @@ void main() {
   testWidgets('new draft back button returns to notes board once',
       (tester) async {
     final router = createAppRouter();
+    final notesRepository = _FakeNotesRepository();
     final autosave = EditorAutosaveService(
       debounceDuration: const Duration(milliseconds: 10),
     );
@@ -89,7 +90,7 @@ void main() {
       ProviderScope(
         overrides: [
           authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
-          notesRepositoryProvider.overrideWithValue(_FakeNotesRepository()),
+          notesRepositoryProvider.overrideWithValue(notesRepository),
           foldersRepositoryProvider.overrideWithValue(_FakeFoldersRepository()),
           editorAutosaveServiceProvider.overrideWithValue(autosave),
         ],
@@ -137,7 +138,9 @@ void main() {
 
     expect(find.byKey(const Key('appflowy-editor-widget')), findsNothing);
     expect(find.byTooltip('新建笔记'), findsOneWidget);
+    expect(find.text('新建笔记'), findsOneWidget);
     expect(find.text('第一条笔记'), findsOneWidget);
+    expect(notesRepository.fetchAllCount, greaterThanOrEqualTo(2));
   });
 
   testWidgets('android system back from editor returns to notes board',
@@ -348,6 +351,8 @@ class _FakeAuthRepository implements AuthRepository {
 }
 
 class _FakeNotesRepository implements NotesRepository {
+  int fetchAllCount = 0;
+
   final List<NoteItem> _notes = [
     NoteItem(
       id: 'n1',
@@ -362,7 +367,11 @@ class _FakeNotesRepository implements NotesRepository {
   ];
 
   @override
-  Future<List<NoteItem>> fetchAll({String? folderId}) async => _notes;
+  Future<List<NoteItem>> fetchAll({String? folderId}) async {
+    fetchAllCount += 1;
+    return _notes;
+  }
+
   @override
   Future<List<NoteItem>> fetchFavorites() async => _notes;
   @override
@@ -372,10 +381,13 @@ class _FakeNotesRepository implements NotesRepository {
   @override
   Future<NoteItem?> getById(String id) async => _notes.first;
   @override
-  Future<NoteItem> create(
-          {required String title,
-          required String content,
-          String? folderId}) async =>
+  Future<NoteItem> create({
+    required String title,
+    required String content,
+    String? folderId,
+  }) async {
+    _notes.insert(
+      0,
       NoteItem(
         id: 'new-draft',
         title: title,
@@ -385,7 +397,11 @@ class _FakeNotesRepository implements NotesRepository {
         isDeleted: false,
         isPinned: false,
         updatedAt: DateTime(2026),
-      );
+      ),
+    );
+    return _notes.first;
+  }
+
   @override
   Future<NoteItem> update(
           {required String id,
