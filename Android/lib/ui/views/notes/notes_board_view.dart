@@ -663,6 +663,12 @@ class _WorkspaceContent extends ConsumerWidget {
                     ref.read(notesBoardViewModelProvider.notifier).load(),
                 child: const Text('重新加载'),
               ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: viewModel.openSettings,
+                icon: const Icon(Icons.settings_rounded, size: 18),
+                label: const Text('服务器设置'),
+              ),
             ],
           ),
         ),

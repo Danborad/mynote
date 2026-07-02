@@ -3,6 +3,14 @@ String normalizeServerBaseUrl(String raw) {
   final parsed = Uri.tryParse(normalized);
   if (parsed != null && parsed.hasScheme && parsed.host.isNotEmpty) {
     final pathSegments = parsed.pathSegments;
+    const frontendRoutes = {
+      'login',
+      'register',
+      'notes',
+      'note',
+      'share',
+      'settings',
+    };
     Uri rebuild(String path) => Uri(
           scheme: parsed.scheme,
           userInfo: parsed.userInfo,
@@ -10,10 +18,17 @@ String normalizeServerBaseUrl(String raw) {
           port: parsed.hasPort ? parsed.port : null,
           path: path,
         );
-    if (pathSegments.isNotEmpty && pathSegments.first == 'api') {
-      normalized = rebuild('/api').toString();
+    final apiIndex = pathSegments.indexOf('api');
+    if (apiIndex >= 0) {
+      normalized =
+          rebuild('/${pathSegments.take(apiIndex + 1).join('/')}').toString();
     } else {
-      normalized = rebuild('').toString();
+      final frontendIndex = pathSegments
+          .indexWhere((segment) => frontendRoutes.contains(segment));
+      final baseSegments =
+          frontendIndex >= 0 ? pathSegments.take(frontendIndex) : pathSegments;
+      final basePath = baseSegments.isEmpty ? '' : '/${baseSegments.join('/')}';
+      normalized = rebuild(basePath).toString();
     }
   }
   normalized = normalized.replaceAll(RegExp(r'/+$'), '');

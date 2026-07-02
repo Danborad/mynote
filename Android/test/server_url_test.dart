@@ -28,6 +28,21 @@ void main() {
     );
   });
 
+  test('normalizeServerBaseUrl preserves deployment path prefixes', () {
+    expect(
+      normalizeServerBaseUrl('https://notes.example.com/mynote'),
+      'https://notes.example.com/mynote/api',
+    );
+    expect(
+      normalizeServerBaseUrl('https://notes.example.com/mynote/login'),
+      'https://notes.example.com/mynote/api',
+    );
+    expect(
+      normalizeServerBaseUrl('https://notes.example.com/mynote/api/'),
+      'https://notes.example.com/mynote/api',
+    );
+  });
+
   test('resolveServerAssetUrl uses the current server base url', () {
     expect(
       resolveServerAssetUrl(

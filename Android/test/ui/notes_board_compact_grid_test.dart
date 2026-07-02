@@ -309,6 +309,7 @@ void main() {
 
     expect(find.textContaining('接口不存在'), findsOneWidget);
     expect(find.text('使用本地数据'), findsNothing);
+    expect(find.text('服务器设置'), findsOneWidget);
     expect(find.textContaining('DioException'), findsNothing);
   });
 

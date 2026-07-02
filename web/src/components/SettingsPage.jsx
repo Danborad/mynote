@@ -6,7 +6,7 @@ import CropModal from './CropModal'
 import { useNotes } from '../contexts/NotesContext'
 import { useToast } from '../contexts/ToastContext' // Added useToast import
 
-const APP_VERSION = '1.0.5'
+const APP_VERSION = '1.0.6'
 const GITHUB_URL = 'https://github.com/Danborad/mynote'
 
 export default function SettingsPage({ isOverlayDrawer = false, onClose }) {
