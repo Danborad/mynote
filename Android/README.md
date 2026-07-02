@@ -4,9 +4,9 @@ Flutter 原生安卓客户端。
 
 ## 当前版本
 
-- 版本号：`1.0.6`
-- APK：[`../releases/mynote-android-v1.0.6.apk`](../releases/mynote-android-v1.0.6.apk)
-- SHA256：`92ae9742f1ab4749173caeaa235312077916376fc258b8819eea5a64fcd9595f`
+- 版本号：`1.0.7`
+- APK：[`../releases/mynote-android-v1.0.7.apk`](../releases/mynote-android-v1.0.7.apk)
+- SHA256：`41290a3fe49022103a090a8b5d720cba26b88fa88b426aec3c7f23aa85c1d8f5`
 
 ## 当前状态
 

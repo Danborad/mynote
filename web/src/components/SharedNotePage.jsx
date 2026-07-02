@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { notesApi } from '../api'
+import { normalizeSharedHtmlMediaUrls, resolveSharedMediaUrl } from '../utils/sharedMediaUrls.js'
 
 export default function SharedNotePage({ token }) {
     const [note, setNote] = useState(null)
@@ -36,13 +37,7 @@ export default function SharedNotePage({ token }) {
         const insertedMediaNodes = []
         const cleanupHandlers = []
 
-        const resolveMediaUrl = (raw = '') => {
-            const src = String(raw || '').trim()
-            if (!src) return ''
-            if (/^(https?:|data:|blob:)/i.test(src)) return src
-            if (src.startsWith('/')) return `${window.location.origin}${src}`
-            return `${window.location.origin}/${src}`
-        }
+        const resolveMediaUrl = (raw = '') => resolveSharedMediaUrl(raw, window.location.origin)
 
         const formatTime = (time) => {
             if (!time && time !== 0) return '00:00'
@@ -244,6 +239,20 @@ export default function SharedNotePage({ token }) {
             wrappers.push(wrapper)
         })
 
+        const srcNodes = articleRef.current.querySelectorAll('[src]')
+        srcNodes.forEach((node) => {
+            const current = node.getAttribute('src')
+            const next = resolveMediaUrl(current)
+            if (next && next !== current) node.setAttribute('src', next)
+        })
+
+        const hrefNodes = articleRef.current.querySelectorAll('a[href]')
+        hrefNodes.forEach((node) => {
+            const current = node.getAttribute('href')
+            const next = resolveMediaUrl(current)
+            if (next && next !== current) node.setAttribute('href', next)
+        })
+
         const audioNodes = articleRef.current.querySelectorAll('audio-player-component, [data-type="audio-player"]')
         audioNodes.forEach((node) => {
             const wrap = buildMediaCard(node, 'audio')
@@ -272,6 +281,11 @@ export default function SharedNotePage({ token }) {
             insertedMediaNodes.forEach((n) => n.remove())
         }
     }, [note, loading, error])
+
+    const sharedContent = normalizeSharedHtmlMediaUrls(
+        note?.content || '<p>暂无内容</p>',
+        typeof window !== 'undefined' ? window.location.origin : '',
+    )
 
     return (
         <div className="app-shell min-h-screen text-gray-900 dark:text-text-main px-4 py-6 md:px-8">
@@ -304,7 +318,7 @@ export default function SharedNotePage({ token }) {
                             <article
                                 ref={articleRef}
                                 className="shared-note-content prose prose-lg dark:prose-invert max-w-none"
-                                dangerouslySetInnerHTML={{ __html: note?.content || '<p>暂无内容</p>' }}
+                                dangerouslySetInnerHTML={{ __html: sharedContent }}
                             />
                         </>
                     )}

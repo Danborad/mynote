@@ -6,6 +6,7 @@ import { User } from '../entities/user.entity';
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
+import { normalizeSharedMediaUrls } from './media-url-normalizer';
 
 @Injectable()
 export class NotesService implements OnModuleInit {
@@ -378,7 +379,7 @@ export class NotesService implements OnModuleInit {
         return { enabled: false };
     }
 
-    async findSharedByToken(token: string) {
+    async findSharedByToken(token: string, origin = '') {
         const note = await this.noteRepository.findOne({
             where: { shareToken: token, isDeleted: false },
             relations: ['user'],
@@ -407,7 +408,7 @@ export class NotesService implements OnModuleInit {
         return {
             id: note.id,
             title: note.title,
-            content: note.content,
+            content: normalizeSharedMediaUrls(note.content, origin),
             createdAt: note.createdAt,
             updatedAt: note.updatedAt,
             sharedAt: note.sharedAt,
