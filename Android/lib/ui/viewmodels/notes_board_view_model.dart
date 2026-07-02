@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mynote_android/app/providers.dart';
 import 'package:mynote_android/domain/entities/folder_item.dart';
@@ -26,6 +27,7 @@ class NotesBoardState {
     this.currentView = NotesWorkspaceView.all,
     this.selectedNote,
     this.searchQuery = '',
+    this.canUseLocalData = false,
   });
 
   final List<NoteItem> notes;
@@ -38,6 +40,7 @@ class NotesBoardState {
   final NotesWorkspaceView currentView;
   final NoteItem? selectedNote;
   final String searchQuery;
+  final bool canUseLocalData;
 
   int get notesCount => (stats['totalNotes'] as num?)?.toInt() ?? notes.length;
   int get favoritesCount =>
@@ -64,6 +67,7 @@ class NotesBoardState {
     NotesWorkspaceView? currentView,
     Object? selectedNote = _sentinel,
     String? searchQuery,
+    bool? canUseLocalData,
   }) {
     return NotesBoardState(
       notes: notes ?? this.notes,
@@ -80,6 +84,7 @@ class NotesBoardState {
           ? this.selectedNote
           : selectedNote as NoteItem?,
       searchQuery: searchQuery ?? this.searchQuery,
+      canUseLocalData: canUseLocalData ?? this.canUseLocalData,
     );
   }
 }
@@ -114,6 +119,7 @@ class NotesBoardViewModel extends StateNotifier<NotesBoardState> {
       currentView: NotesWorkspaceView.shares,
       selectedNote: null,
       selectedFolderId: null,
+      canUseLocalData: false,
     );
     try {
       final sharedLinks =
@@ -126,7 +132,12 @@ class NotesBoardViewModel extends StateNotifier<NotesBoardState> {
         stats: stats,
       );
     } catch (error) {
-      state = state.copyWith(loading: false, error: error.toString());
+      final mapped = _mapBoardError(error);
+      state = state.copyWith(
+        loading: false,
+        error: mapped.message,
+        canUseLocalData: mapped.canUseLocalData,
+      );
     }
   }
 
@@ -166,7 +177,12 @@ class NotesBoardViewModel extends StateNotifier<NotesBoardState> {
       );
       return note ?? existing;
     } catch (error) {
-      state = state.copyWith(loading: false, error: error.toString());
+      final mapped = _mapBoardError(error);
+      state = state.copyWith(
+        loading: false,
+        error: mapped.message,
+        canUseLocalData: mapped.canUseLocalData,
+      );
       return null;
     }
   }
@@ -430,6 +446,7 @@ class NotesBoardViewModel extends StateNotifier<NotesBoardState> {
       selectedNote: null,
       loading: false,
       error: null,
+      canUseLocalData: false,
     );
     // Returning from the editor should feel instant. The editor owns saving;
     // keep the current board cache in place instead of kicking off a full
@@ -518,7 +535,12 @@ class NotesBoardViewModel extends StateNotifier<NotesBoardState> {
         loading: false,
       );
     } catch (error) {
-      state = state.copyWith(loading: false, error: error.toString());
+      final mapped = _mapBoardError(error);
+      state = state.copyWith(
+        loading: false,
+        error: mapped.message,
+        canUseLocalData: mapped.canUseLocalData,
+      );
     }
   }
 
@@ -537,6 +559,53 @@ class NotesBoardViewModel extends StateNotifier<NotesBoardState> {
       return state.folders;
     }
   }
+
+  _MappedBoardError _mapBoardError(Object error) {
+    if (error is DioException) {
+      final statusCode = error.response?.statusCode;
+      if (statusCode == 401) {
+        return const _MappedBoardError('登录已失效，请重新登录', false);
+      }
+      if (statusCode == 404) {
+        return const _MappedBoardError(
+          '服务器地址不正确或接口不存在，请检查设置里的服务器地址',
+          false,
+        );
+      }
+      if (error.response != null) {
+        return _MappedBoardError('服务器返回错误：$statusCode', false);
+      }
+      final isNetworkError = switch (error.type) {
+        DioExceptionType.connectionTimeout ||
+        DioExceptionType.sendTimeout ||
+        DioExceptionType.receiveTimeout ||
+        DioExceptionType.connectionError ||
+        DioExceptionType.unknown =>
+          true,
+        DioExceptionType.badCertificate ||
+        DioExceptionType.badResponse ||
+        DioExceptionType.cancel =>
+          false,
+      };
+      return _MappedBoardError(
+        error.type == DioExceptionType.connectionError
+            ? '无法连接服务器，请检查网络或服务器地址'
+            : '网络请求超时，请稍后重试',
+        isNetworkError,
+      );
+    }
+    return _MappedBoardError(
+      error.toString().replaceFirst('Exception: ', ''),
+      true,
+    );
+  }
+}
+
+class _MappedBoardError {
+  const _MappedBoardError(this.message, this.canUseLocalData);
+
+  final String message;
+  final bool canUseLocalData;
 }
 
 final notesBoardViewModelProvider =

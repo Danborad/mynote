@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:mynote_android/app/utils/note_preview.dart';
 import 'package:mynote_android/core/storage/local_notes_storage.dart';
 import 'package:mynote_android/domain/entities/note_item.dart';
@@ -29,8 +30,10 @@ class OfflineNotesRepository implements NotesRepository {
       final notes = await remote.fetchAll(folderId: folderId);
       await localStorage.saveNotes(notes);
       return notes;
-    } catch (_) {
-      await setOfflineMode(true);
+    } catch (error) {
+      if (_shouldUseOffline(error)) {
+        await setOfflineMode(true);
+      }
       rethrow;
     }
   }
@@ -46,9 +49,12 @@ class OfflineNotesRepository implements NotesRepository {
         await localStorage.upsertNote(note);
       }
       return note;
-    } catch (_) {
-      await setOfflineMode(true);
-      return localStorage.readNote(id);
+    } catch (error) {
+      if (_shouldUseOffline(error)) {
+        await setOfflineMode(true);
+        return localStorage.readNote(id);
+      }
+      rethrow;
     }
   }
 
@@ -67,7 +73,10 @@ class OfflineNotesRepository implements NotesRepository {
         );
         await localStorage.upsertNote(note);
         return note;
-      } catch (_) {
+      } catch (error) {
+        if (!_shouldUseOffline(error)) {
+          rethrow;
+        }
         await setOfflineMode(true);
       }
     }
@@ -108,7 +117,10 @@ class OfflineNotesRepository implements NotesRepository {
         );
         await localStorage.upsertNote(note);
         return note;
-      } catch (_) {
+      } catch (error) {
+        if (!_shouldUseOffline(error)) {
+          rethrow;
+        }
         await setOfflineMode(true);
       }
     }
@@ -142,7 +154,10 @@ class OfflineNotesRepository implements NotesRepository {
         await remote.delete(id);
         await localStorage.removeNote(id);
         return;
-      } catch (_) {
+      } catch (error) {
+        if (!_shouldUseOffline(error)) {
+          rethrow;
+        }
         await setOfflineMode(true);
       }
     }
@@ -164,7 +179,10 @@ class OfflineNotesRepository implements NotesRepository {
           : await remote.fetchFavorites();
       if (!offlineMode) await localStorage.saveNotes(notes);
       return notes.where((note) => note.isFavorite).toList();
-    } catch (_) {
+    } catch (error) {
+      if (!_shouldUseOffline(error)) {
+        rethrow;
+      }
       await setOfflineMode(true);
       final local = await localStorage.readNotes();
       return local.where((note) => note.isFavorite).toList();
@@ -174,12 +192,25 @@ class OfflineNotesRepository implements NotesRepository {
   @override
   Future<List<NoteItem>> fetchTrash() async {
     if (offlineMode) {
-      final local = await localStorage.readNotes();
-      return local.where((note) => note.isDeleted).toList();
+      try {
+        await _syncPending();
+        final notes = await remote.fetchTrash();
+        await setOfflineMode(false);
+        return notes;
+      } catch (error) {
+        if (!_shouldUseOffline(error)) {
+          rethrow;
+        }
+        final local = await localStorage.readNotes();
+        return local.where((note) => note.isDeleted).toList();
+      }
     }
     try {
       return await remote.fetchTrash();
-    } catch (_) {
+    } catch (error) {
+      if (!_shouldUseOffline(error)) {
+        rethrow;
+      }
       await setOfflineMode(true);
       final local = await localStorage.readNotes();
       return local.where((note) => note.isDeleted).toList();
@@ -204,7 +235,10 @@ class OfflineNotesRepository implements NotesRepository {
       await localStorage.saveNotes(notes);
       await setOfflineMode(false);
       return notes;
-    } catch (_) {
+    } catch (error) {
+      if (!_shouldUseOffline(error)) {
+        rethrow;
+      }
       return null;
     }
   }
@@ -342,10 +376,27 @@ class OfflineNotesRepository implements NotesRepository {
   @override
   Future<Map<String, dynamic>> stats() async {
     if (offlineMode) {
-      final notes = await localStorage.readNotes();
-      return {'totalNotes': notes.length};
+      try {
+        await _syncPending();
+        final stats = await remote.stats();
+        await setOfflineMode(false);
+        return stats;
+      } catch (error) {
+        if (!_shouldUseOffline(error)) {
+          rethrow;
+        }
+        return _localStats();
+      }
     }
-    return remote.stats();
+    try {
+      return await remote.stats();
+    } catch (error) {
+      if (!_shouldUseOffline(error)) {
+        rethrow;
+      }
+      await setOfflineMode(true);
+      return _localStats();
+    }
   }
 
   @override
@@ -358,6 +409,65 @@ class OfflineNotesRepository implements NotesRepository {
   Future<Map<String, dynamic>> revokeShare(String id) => remote.revokeShare(id);
 
   @override
-  Future<List<Map<String, dynamic>>> getSharedLinks() =>
-      offlineMode ? Future.value(const []) : remote.getSharedLinks();
+  Future<List<Map<String, dynamic>>> getSharedLinks() => _getSharedLinks();
+
+  Future<List<Map<String, dynamic>>> _getSharedLinks() async {
+    if (offlineMode) {
+      try {
+        await _syncPending();
+        final links = await remote.getSharedLinks();
+        await setOfflineMode(false);
+        return links;
+      } catch (error) {
+        if (!_shouldUseOffline(error)) {
+          rethrow;
+        }
+        return const [];
+      }
+    }
+    try {
+      return await remote.getSharedLinks();
+    } catch (error) {
+      if (!_shouldUseOffline(error)) {
+        rethrow;
+      }
+      await setOfflineMode(true);
+      return const [];
+    }
+  }
+
+  Future<Map<String, dynamic>> _localStats() async {
+    final notes = await localStorage.readNotes();
+    final active = notes.where((note) => !note.isDeleted).toList();
+    final trash = notes.where((note) => note.isDeleted).toList();
+    return {
+      'totalNotes': active.length,
+      'favoritesCount': active.where((note) => note.isFavorite).length,
+      'pinnedCount': active.where((note) => note.isPinned).length,
+      'trashCount': trash.length,
+      'storageUsed': active.fold<int>(
+        0,
+        (sum, note) => sum + note.title.length + note.content.length,
+      ),
+    };
+  }
+
+  bool _shouldUseOffline(Object error) {
+    if (error is DioException) {
+      if (error.response != null) return false;
+      return switch (error.type) {
+        DioExceptionType.connectionTimeout ||
+        DioExceptionType.sendTimeout ||
+        DioExceptionType.receiveTimeout ||
+        DioExceptionType.connectionError ||
+        DioExceptionType.unknown =>
+          true,
+        DioExceptionType.badCertificate ||
+        DioExceptionType.badResponse ||
+        DioExceptionType.cancel =>
+          false,
+      };
+    }
+    return true;
+  }
 }

@@ -1,5 +1,22 @@
 String normalizeServerBaseUrl(String raw) {
-  final normalized = raw.trim().replaceAll(RegExp(r'/+$'), '');
+  var normalized = raw.trim().replaceAll(RegExp(r'/+$'), '');
+  final parsed = Uri.tryParse(normalized);
+  if (parsed != null && parsed.hasScheme && parsed.host.isNotEmpty) {
+    final pathSegments = parsed.pathSegments;
+    Uri rebuild(String path) => Uri(
+          scheme: parsed.scheme,
+          userInfo: parsed.userInfo,
+          host: parsed.host,
+          port: parsed.hasPort ? parsed.port : null,
+          path: path,
+        );
+    if (pathSegments.isNotEmpty && pathSegments.first == 'api') {
+      normalized = rebuild('/api').toString();
+    } else {
+      normalized = rebuild('').toString();
+    }
+  }
+  normalized = normalized.replaceAll(RegExp(r'/+$'), '');
   if (normalized.endsWith('/api')) {
     return normalized;
   }

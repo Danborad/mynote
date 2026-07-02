@@ -13,6 +13,21 @@ void main() {
     );
   });
 
+  test('normalizeServerBaseUrl strips frontend paths before adding api', () {
+    expect(
+      normalizeServerBaseUrl('https://notes.example.com/login'),
+      'https://notes.example.com/api',
+    );
+    expect(
+      normalizeServerBaseUrl('https://notes.example.com/notes/abc?from=app'),
+      'https://notes.example.com/api',
+    );
+    expect(
+      normalizeServerBaseUrl('https://notes.example.com/api/'),
+      'https://notes.example.com/api',
+    );
+  });
+
   test('resolveServerAssetUrl uses the current server base url', () {
     expect(
       resolveServerAssetUrl(

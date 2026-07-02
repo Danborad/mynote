@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:appflowy_editor/appflowy_editor.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -260,6 +261,55 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('使用本地数据'), findsOneWidget);
+  });
+
+  testWidgets('notes board 404 error does not offer local data mode',
+      (tester) async {
+    final repository = _FakeNotesRepository(
+      fetchError: DioException(
+        requestOptions: RequestOptions(path: '/notes'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/notes'),
+          statusCode: 404,
+        ),
+        type: DioExceptionType.badResponse,
+      ),
+    );
+    final autosave = EditorAutosaveService(
+      debounceDuration: const Duration(milliseconds: 10),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+          notesRepositoryProvider.overrideWithValue(repository),
+          foldersRepositoryProvider.overrideWithValue(_FakeFoldersRepository()),
+          editorHtmlMapperProvider.overrideWithValue(const EditorHtmlMapper()),
+          editorAutosaveServiceProvider.overrideWithValue(autosave),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: [
+            AppFlowyEditorLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: NotesBoardView(),
+        ),
+      ),
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(NotesBoardView)),
+    );
+    await tester.pumpAndSettle();
+    await container.read(notesBoardViewModelProvider.notifier).load();
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('接口不存在'), findsOneWidget);
+    expect(find.text('使用本地数据'), findsNothing);
+    expect(find.textContaining('DioException'), findsNothing);
   });
 
   testWidgets('create note fab only appears on the home notes view',
@@ -631,10 +681,15 @@ class _FakeAuthRepository implements AuthRepository {
 }
 
 class _FakeNotesRepository implements NotesRepository {
-  _FakeNotesRepository({this.pinnedFirst = false, this.failFetch = false});
+  _FakeNotesRepository({
+    this.pinnedFirst = false,
+    this.failFetch = false,
+    this.fetchError,
+  });
 
   final bool pinnedFirst;
   final bool failFetch;
+  final Object? fetchError;
   Completer<void>? _fetchGate;
   String? lastSearchQuery;
   int fetchAllCount = 0;
@@ -682,6 +737,10 @@ class _FakeNotesRepository implements NotesRepository {
   Future<List<NoteItem>> fetchAll({String? folderId}) async {
     fetchAllCount += 1;
     await _maybeWaitForFetchGate();
+    final error = fetchError;
+    if (error != null) {
+      throw error;
+    }
     if (failFetch) {
       throw StateError('offline');
     }

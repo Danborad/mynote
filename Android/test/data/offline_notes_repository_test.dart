@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mynote_android/core/storage/local_notes_storage.dart';
@@ -167,7 +168,8 @@ void main() {
     );
   });
 
-  test('untouched draft create followed by content update syncs once', () async {
+  test('untouched draft create followed by content update syncs once',
+      () async {
     SharedPreferences.setMockInitialValues({});
     final storage = LocalNotesStorage();
     final remote = _FakeRemoteNotesRepository();
@@ -210,10 +212,118 @@ void main() {
     expect(remote.updatedIds, isEmpty);
     expect(await storage.pendingCount(), 0);
   });
+
+  test('http 404 does not switch the repository into offline mode', () async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = LocalNotesStorage();
+    final remote = _FakeRemoteNotesRepository()
+      ..nextError = DioException(
+        requestOptions: RequestOptions(path: '/notes'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/notes'),
+          statusCode: 404,
+        ),
+        type: DioExceptionType.badResponse,
+      );
+    final offlineStates = <bool>[];
+    final repository = OfflineNotesRepository(
+      remote: remote,
+      localStorage: storage,
+      offlineMode: false,
+      setOfflineMode: (value) async => offlineStates.add(value),
+    );
+
+    await expectLater(repository.fetchAll(), throwsA(isA<DioException>()));
+
+    expect(offlineStates, isEmpty);
+  });
+
+  test('offline mode still uses remote stats and shared links after reconnect',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = LocalNotesStorage();
+    final remote = _FakeRemoteNotesRepository()
+      ..remoteStats = const {
+        'totalNotes': 40,
+        'favoritesCount': 5,
+        'trashCount': 16,
+        'storageUsed': 19451084,
+      }
+      ..remoteSharedLinks = const [
+        {'id': 's1', 'shareUrl': 'https://notes.example.com/share/s1'},
+      ];
+    final offlineStates = <bool>[];
+    final repository = OfflineNotesRepository(
+      remote: remote,
+      localStorage: storage,
+      offlineMode: true,
+      setOfflineMode: (value) async => offlineStates.add(value),
+    );
+
+    expect(await repository.stats(), remote.remoteStats);
+    expect(await repository.getSharedLinks(), remote.remoteSharedLinks);
+    expect(offlineStates, contains(false));
+  });
+
+  test('offline fetch rethrows http 404 instead of using stale cache',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = LocalNotesStorage();
+    final remote = _FakeRemoteNotesRepository()
+      ..nextError = DioException(
+        requestOptions: RequestOptions(path: '/notes'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/notes'),
+          statusCode: 404,
+        ),
+        type: DioExceptionType.badResponse,
+      );
+    final repository = OfflineNotesRepository(
+      remote: remote,
+      localStorage: storage,
+      offlineMode: true,
+      setOfflineMode: (_) async {},
+    );
+
+    await expectLater(repository.fetchAll(), throwsA(isA<DioException>()));
+  });
+
+  test('offline trash reloads remote trash after reconnect', () async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = LocalNotesStorage();
+    final remote = _FakeRemoteNotesRepository()
+      ..remoteTrash = [
+        NoteItem(
+          id: 'trash-remote',
+          title: '远端废纸篓',
+          content: '',
+          isFavorite: false,
+          isDeleted: true,
+          isPinned: false,
+          updatedAt: DateTime(2026, 7, 2),
+        ),
+      ];
+    final offlineStates = <bool>[];
+    final repository = OfflineNotesRepository(
+      remote: remote,
+      localStorage: storage,
+      offlineMode: true,
+      setOfflineMode: (value) async => offlineStates.add(value),
+    );
+
+    final trash = await repository.fetchTrash();
+
+    expect(trash.single.id, 'trash-remote');
+    expect(offlineStates, contains(false));
+  });
 }
 
 class _FakeRemoteNotesRepository implements NotesRepository {
   bool fail = false;
+  Object? nextError;
+  Map<String, dynamic> remoteStats = const {};
+  List<Map<String, dynamic>> remoteSharedLinks = const [];
+  List<NoteItem> remoteTrash = const [];
   final List<String> createdTitles = [];
   final List<String> updatedIds = [];
   final List<String> updatedTitles = [];
@@ -228,6 +338,11 @@ class _FakeRemoteNotesRepository implements NotesRepository {
   );
 
   void _maybeFail() {
+    final error = nextError;
+    if (error != null) {
+      nextError = null;
+      throw error;
+    }
     if (fail) throw StateError('offline');
   }
 
@@ -295,7 +410,11 @@ class _FakeRemoteNotesRepository implements NotesRepository {
   @override
   Future<List<NoteItem>> fetchFavorites() async => fetchAll();
   @override
-  Future<List<NoteItem>> fetchTrash() async => const [];
+  Future<List<NoteItem>> fetchTrash() async {
+    _maybeFail();
+    return remoteTrash;
+  }
+
   @override
   Future<List<NoteItem>> search(String query) async => fetchAll();
   @override
@@ -307,7 +426,11 @@ class _FakeRemoteNotesRepository implements NotesRepository {
   @override
   Future<NoteItem> togglePin(String id) async => note;
   @override
-  Future<Map<String, dynamic>> stats() async => const {};
+  Future<Map<String, dynamic>> stats() async {
+    _maybeFail();
+    return remoteStats;
+  }
+
   @override
   Future<Map<String, dynamic>> share(String id) async => const {};
   @override
@@ -315,5 +438,8 @@ class _FakeRemoteNotesRepository implements NotesRepository {
   @override
   Future<Map<String, dynamic>> revokeShare(String id) async => const {};
   @override
-  Future<List<Map<String, dynamic>>> getSharedLinks() async => const [];
+  Future<List<Map<String, dynamic>>> getSharedLinks() async {
+    _maybeFail();
+    return remoteSharedLinks;
+  }
 }

@@ -296,6 +296,11 @@ void main() {
 
   testWidgets('home note card menu and cloud session entry work',
       (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final authRepository = _FakeAuthRepository();
     final notesRepository = _FakeNotesRepository();
     final foldersRepository = _FakeFoldersRepository();
@@ -361,6 +366,10 @@ void main() {
     expect(
       tester.getTopLeft(find.text('加入分组')).dy,
       tester.getTopLeft(find.text('收藏')).dy,
+    );
+    expect(
+      tester.getTopRight(find.text('删除')).dx,
+      lessThanOrEqualTo(tester.getTopRight(find.text('快捷操作')).dx + 320),
     );
 
     await tester.tap(find.text('链接分享'));

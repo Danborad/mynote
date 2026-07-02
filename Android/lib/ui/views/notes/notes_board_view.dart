@@ -643,19 +643,21 @@ class _WorkspaceContent extends ConsumerWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: () async {
-                  await ref
-                      .read(offlineModeProvider.notifier)
-                      .setOfflineMode(true);
-                  await ref
-                      .read(notesBoardViewModelProvider.notifier)
-                      .reloadCurrent();
-                },
-                icon: const Icon(Icons.storage_rounded, size: 18),
-                label: const Text('使用本地数据'),
-              ),
-              const SizedBox(height: 8),
+              if (state.canUseLocalData) ...[
+                FilledButton.icon(
+                  onPressed: () async {
+                    await ref
+                        .read(offlineModeProvider.notifier)
+                        .setOfflineMode(true);
+                    await ref
+                        .read(notesBoardViewModelProvider.notifier)
+                        .reloadCurrent();
+                  },
+                  icon: const Icon(Icons.storage_rounded, size: 18),
+                  label: const Text('使用本地数据'),
+                ),
+                const SizedBox(height: 8),
+              ],
               FilledButton.tonal(
                 onPressed: () =>
                     ref.read(notesBoardViewModelProvider.notifier).load(),
@@ -2193,7 +2195,7 @@ class _CompactActionGrid extends StatelessWidget {
         const gap = 6.0;
         final availableWidth =
             constraints.maxWidth - gap * (actions.length - 1);
-        final tileSize = (availableWidth / actions.length).clamp(52.0, 60.0);
+        final tileSize = (availableWidth / actions.length).clamp(44.0, 60.0);
         return SizedBox(
           height: tileSize,
           child: Row(
