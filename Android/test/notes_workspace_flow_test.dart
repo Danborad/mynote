@@ -158,6 +158,10 @@ void main() {
     expect(find.text('复制'), findsOneWidget);
     expect(find.text('关闭'), findsOneWidget);
 
+    await tester.tap(find.text('复制'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('分享链接已复制到剪贴板'), findsOneWidget);
+
     await tester.tap(find.text('关闭').first);
     await tester.pumpAndSettle();
     expect(notesRepository.revokedShareIds, contains('n1'));
@@ -340,6 +344,10 @@ void main() {
 
     expect(find.text('快捷操作'), findsOneWidget);
     expect(find.byKey(const Key('quick-actions-row')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('quick-actions-row'))).height,
+      lessThanOrEqualTo(64),
+    );
     expect(find.text('收藏'), findsOneWidget);
     expect(find.text('图片分享'), findsOneWidget);
     expect(find.text('链接分享'), findsOneWidget);
@@ -354,6 +362,15 @@ void main() {
       tester.getTopLeft(find.text('加入分组')).dy,
       tester.getTopLeft(find.text('收藏')).dy,
     );
+
+    await tester.tap(find.text('链接分享'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(notesRepository.sharedIds, contains('n1'));
+    expect(find.text('分享链接已复制到剪贴板'), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.more_horiz).first);
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('加入分组'));
     await tester.pumpAndSettle();

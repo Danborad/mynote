@@ -63,6 +63,29 @@ class LocalNotesStorage {
     await saveNotes(notes.where((note) => note.id != id).toList());
   }
 
+  Future<void> replaceNoteId({
+    required String oldId,
+    required NoteItem note,
+  }) async {
+    final notes = await readNotes();
+    final next = <NoteItem>[];
+    var inserted = false;
+    for (final item in notes) {
+      if (item.id == oldId || item.id == note.id) {
+        if (!inserted) {
+          next.add(note);
+          inserted = true;
+        }
+        continue;
+      }
+      next.add(item);
+    }
+    if (!inserted) {
+      next.insert(0, note);
+    }
+    await saveNotes(next);
+  }
+
   Future<List<PendingNoteOperation>> readPendingOperations() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_pendingKey);

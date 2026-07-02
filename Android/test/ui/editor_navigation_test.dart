@@ -78,7 +78,7 @@ void main() {
     expect(find.byTooltip('更多'), findsOneWidget);
   });
 
-  testWidgets('new draft back button returns to notes board once',
+  testWidgets('new draft back button returns without creating an empty note',
       (tester) async {
     final router = createAppRouter();
     final notesRepository = _FakeNotesRepository();
@@ -131,6 +131,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byKey(const Key('appflowy-editor-widget')), findsOneWidget);
+    expect(notesRepository.createCount, 0);
 
     await tester.tap(find.byTooltip('返回'));
     await tester.pump();
@@ -138,7 +139,7 @@ void main() {
 
     expect(find.byKey(const Key('appflowy-editor-widget')), findsNothing);
     expect(find.byTooltip('新建笔记'), findsOneWidget);
-    expect(find.text('新建笔记'), findsOneWidget);
+    expect(find.text('新建笔记'), findsNothing);
     expect(find.text('第一条笔记'), findsOneWidget);
     expect(notesRepository.fetchAllCount, greaterThanOrEqualTo(2));
   });
@@ -352,6 +353,7 @@ class _FakeAuthRepository implements AuthRepository {
 
 class _FakeNotesRepository implements NotesRepository {
   int fetchAllCount = 0;
+  int createCount = 0;
 
   final List<NoteItem> _notes = [
     NoteItem(
@@ -386,6 +388,7 @@ class _FakeNotesRepository implements NotesRepository {
     required String content,
     String? folderId,
   }) async {
+    createCount += 1;
     _notes.insert(
       0,
       NoteItem(

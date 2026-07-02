@@ -2025,7 +2025,7 @@ class _CardMenuButton extends ConsumerWidget {
         );
         break;
       case 'link_share':
-        await _shareNoteLink(ref);
+        await _shareNoteLink(context, ref);
         break;
       case 'folder':
         await _moveToFolder(context, ref);
@@ -2056,11 +2056,16 @@ class _CardMenuButton extends ConsumerWidget {
         );
   }
 
-  Future<void> _shareNoteLink(WidgetRef ref) async {
+  Future<void> _shareNoteLink(BuildContext context, WidgetRef ref) async {
     final result = await ref.read(notesRepositoryProvider).share(note.id);
     final shareUrl = result['shareUrl']?.toString();
     if (shareUrl != null && shareUrl.isNotEmpty) {
+      if (context.mounted) {
+        showAppSnackBar(context, '分享链接已复制到剪贴板');
+      }
       await Clipboard.setData(ClipboardData(text: shareUrl));
+    } else if (context.mounted) {
+      showAppSnackBar(context, '生成分享链接失败');
     }
   }
 
@@ -2183,22 +2188,32 @@ class _CompactActionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 72,
-      child: Row(
-        key: const Key('quick-actions-row'),
-        children: [
-          for (var index = 0; index < actions.length; index++) ...[
-            Expanded(
-              child: _CompactActionTile(
-                action: actions[index],
-                onSelected: onSelected,
-              ),
-            ),
-            if (index != actions.length - 1) const SizedBox(width: 5),
-          ],
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 6.0;
+        final availableWidth =
+            constraints.maxWidth - gap * (actions.length - 1);
+        final tileSize = (availableWidth / actions.length).clamp(52.0, 60.0);
+        return SizedBox(
+          height: tileSize,
+          child: Row(
+            key: const Key('quick-actions-row'),
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var index = 0; index < actions.length; index++) ...[
+                SizedBox.square(
+                  dimension: tileSize,
+                  child: _CompactActionTile(
+                    action: actions[index],
+                    onSelected: onSelected,
+                  ),
+                ),
+                if (index != actions.length - 1) const SizedBox(width: gap),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -2218,21 +2233,21 @@ class _CompactActionTile extends StatelessWidget {
         ? const Color(0xFFDC2626)
         : context.palette.primaryText;
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       onTap: () => onSelected(action.value),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: context.palette.chipBackground,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: context.palette.cardBorder),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(action.icon, size: 18, color: foreground),
-              const SizedBox(height: 5),
+              Icon(action.icon, size: 17, color: foreground),
+              const SizedBox(height: 3),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
@@ -2241,7 +2256,7 @@ class _CompactActionTile extends StatelessWidget {
                   softWrap: false,
                   style: TextStyle(
                     color: foreground,
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -2363,6 +2378,9 @@ class _SharedLinkCard extends ConsumerWidget {
                       child: FilledButton(
                         onPressed: () async {
                           final text = '${link['shareUrl'] ?? ''}';
+                          if (context.mounted) {
+                            showAppSnackBar(context, '分享链接已复制到剪贴板');
+                          }
                           await Clipboard.setData(ClipboardData(text: text));
                         },
                         style: FilledButton.styleFrom(

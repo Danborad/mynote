@@ -1,6 +1,6 @@
 services:
   app:
-    image: ${MYNOTE_IMAGE:-zhong12138/mynote:1.0.3}
+    image: ${MYNOTE_IMAGE:-zhong12138/mynote:1.0.4}
     container_name: mynote
     ports:
       - "3665:3665"

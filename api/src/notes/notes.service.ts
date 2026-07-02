@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto';
 @Injectable()
 export class NotesService implements OnModuleInit {
     private readonly logger = new Logger(NotesService.name);
+    private readonly untouchedDraftTitle = '新建笔记';
 
     private extractAttachmentPathsFromNotes(notes: Array<Pick<Note, 'content'>>): string[] {
         const fileSet = new Set<string>();
@@ -125,14 +126,18 @@ export class NotesService implements OnModuleInit {
     }
 
     async findAll(userId: string, folderId?: string) {
-        const where: any = { userId, isDeleted: false };
+        const query = this.noteRepository
+            .createQueryBuilder('note')
+            .where('note.user_id = :userId', { userId })
+            .andWhere('note.is_deleted = false');
         if (folderId) {
-            where.folderId = folderId;
+            query.andWhere('note.folder_id = :folderId', { folderId });
         }
-        return this.noteRepository.find({
-            where,
-            order: { isPinned: 'DESC', updatedAt: 'DESC' },
-        });
+        this.excludeUntouchedDrafts(query);
+        return query
+            .orderBy('note.is_pinned', 'DESC')
+            .addOrderBy('note.updated_at', 'DESC')
+            .getMany();
     }
 
     async findOne(id: string, userId: string) {
@@ -246,19 +251,27 @@ export class NotesService implements OnModuleInit {
     async search(userId: string, query: string) {
         if (!query || !query.trim()) return [];
         const q = `%${query.trim()}%`;
-        return this.noteRepository
+        const builder = this.noteRepository
             .createQueryBuilder('note')
             .where('note.user_id = :userId', { userId })
             .andWhere('note.is_deleted = false')
-            .andWhere('(note.title ILIKE :q OR note.content ILIKE :q)', { q })
+            .andWhere('(note.title ILIKE :q OR note.content ILIKE :q)', { q });
+        this.excludeUntouchedDrafts(builder);
+        return builder
             .orderBy('note.updated_at', 'DESC')
             .limit(20)
             .getMany();
     }
 
     async getStats(userId: string) {
+        const visibleNotesCountQuery = this.noteRepository
+            .createQueryBuilder('note')
+            .where('note.user_id = :userId', { userId })
+            .andWhere('note.is_deleted = false');
+        this.excludeUntouchedDrafts(visibleNotesCountQuery);
+
         const [totalNotes, favoritesCount, pinnedCount, trashCount, wordCountResult] = await Promise.all([
-            this.noteRepository.count({ where: { userId, isDeleted: false } }),
+            visibleNotesCountQuery.getCount(),
             this.noteRepository.count({ where: { userId, isFavorite: true, isDeleted: false } }),
             this.noteRepository.count({ where: { userId, isPinned: true, isDeleted: false } }),
             this.noteRepository.count({ where: { userId, isDeleted: true } }),
@@ -280,6 +293,17 @@ export class NotesService implements OnModuleInit {
             totalWordCount: parseInt(wordCountResult?.total ?? '0', 10),
             storageUsed,
         };
+    }
+
+    private excludeUntouchedDrafts(query: any) {
+        query.andWhere(
+            `NOT (
+                note.title = :untouchedDraftTitle
+                AND COALESCE(note.content, '') = ''
+                AND note.created_at = note.updated_at
+            )`,
+            { untouchedDraftTitle: this.untouchedDraftTitle },
+        );
     }
 
     async createShareLink(id: string, userId: string, origin: string) {

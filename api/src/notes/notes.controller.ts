@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request, ParseUUIDPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { NotesService } from './notes.service';
 
@@ -39,7 +39,7 @@ export class NotesController {
     }
 
     @Get(':id')
-    async findOne(@Param('id') id: string, @Request() req) {
+    async findOne(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Request() req) {
         return this.notesService.findOne(id, req.user.userId);
     }
 
@@ -49,7 +49,7 @@ export class NotesController {
     }
 
     @Put(':id')
-    async update(@Param('id') id: string, @Request() req, @Body() data: any) {
+    async update(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Request() req, @Body() data: any) {
         return this.notesService.update(id, req.user.userId, data);
     }
 
@@ -60,49 +60,49 @@ export class NotesController {
     }
 
     @Delete(':id')
-    async delete(@Param('id') id: string, @Request() req) {
+    async delete(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Request() req) {
         return this.notesService.delete(id, req.user.userId);
     }
 
     @Post(':id/favorite')
-    async toggleFavorite(@Param('id') id: string, @Request() req) {
+    async toggleFavorite(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Request() req) {
         return this.notesService.toggleFavorite(id, req.user.userId);
     }
 
     @Post(':id/pin')
-    async togglePin(@Param('id') id: string, @Request() req) {
+    async togglePin(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Request() req) {
         return this.notesService.togglePin(id, req.user.userId);
     }
 
     @Post(':id/color')
-    async setColor(@Param('id') id: string, @Request() req, @Body() data: { color: string }) {
+    async setColor(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Request() req, @Body() data: { color: string }) {
         return this.notesService.setColor(id, req.user.userId, data.color);
     }
 
     @Post(':id/restore')
-    async restore(@Param('id') id: string, @Request() req) {
+    async restore(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Request() req) {
         return this.notesService.restore(id, req.user.userId);
     }
 
     @Delete(':id/permanent')
-    async permanentDelete(@Param('id') id: string, @Request() req) {
+    async permanentDelete(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Request() req) {
         return this.notesService.permanentDelete(id, req.user.userId);
     }
 
     @Post(':id/share')
-    async createShareLink(@Param('id') id: string, @Request() req) {
+    async createShareLink(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Request() req) {
         const origin = `${req.protocol}://${req.get('host')}`;
         return this.notesService.createShareLink(id, req.user.userId, origin);
     }
 
     @Get(':id/share')
-    async getShareInfo(@Param('id') id: string, @Request() req) {
+    async getShareInfo(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Request() req) {
         const origin = `${req.protocol}://${req.get('host')}`;
         return this.notesService.getShareInfo(id, req.user.userId, origin);
     }
 
     @Delete(':id/share')
-    async revokeShareLink(@Param('id') id: string, @Request() req) {
+    async revokeShareLink(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Request() req) {
         return this.notesService.revokeShareLink(id, req.user.userId);
     }
 }

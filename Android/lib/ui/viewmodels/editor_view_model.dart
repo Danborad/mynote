@@ -111,6 +111,20 @@ class EditorViewModel extends StateNotifier<EditorViewState> {
   Future<void> load() async {
     if (state.loaded || state.loading) return;
 
+    if (_isLocalDraftId(noteId)) {
+      state = state.copyWith(
+        loading: false,
+        loaded: true,
+        document: EditorDocument(
+          noteId: noteId,
+          title: '新建笔记',
+          html: '<p></p>',
+        ),
+        statusText: '未保存',
+      );
+      return;
+    }
+
     state = state.copyWith(loading: true, error: null);
     try {
       final note = await _notesRepository.getById(noteId);
@@ -232,15 +246,32 @@ class EditorViewModel extends StateNotifier<EditorViewState> {
   }
 
   Future<void> save() async {
+    final html = _mapper.exportHtml(state.document);
+    final isLocalDraft = _isLocalDraftId(state.document.noteId);
+    if (isLocalDraft && !_hasMeaningfulContent(html)) {
+      state = state.copyWith(
+        saving: false,
+        error: null,
+        statusText: '未保存',
+      );
+      return;
+    }
+
     state = state.copyWith(saving: true, error: null, statusText: '保存中');
     try {
-      final html = _mapper.exportHtml(state.document);
       final title = _deriveTitleForSave(html);
-      final updated = await _notesRepository.update(
-        id: state.document.noteId,
-        title: title,
-        content: html,
-      );
+      final updated = isLocalDraft
+          ? await _notesRepository.create(
+              title: title,
+              content: html,
+              folderId: state.folderId,
+            )
+          : await _notesRepository.update(
+              id: state.document.noteId,
+              title: title,
+              content: html,
+              folderId: state.folderId,
+            );
 
       state = state.copyWith(
         saving: false,
@@ -250,6 +281,7 @@ class EditorViewModel extends StateNotifier<EditorViewState> {
           html: updated.content,
         ),
         statusText: '已保存',
+        folderId: updated.folderId,
       );
     } catch (error) {
       state = state.copyWith(
@@ -258,6 +290,16 @@ class EditorViewModel extends StateNotifier<EditorViewState> {
         statusText: '保存失败',
       );
     }
+  }
+
+  bool _isLocalDraftId(String id) => id.startsWith('local-draft-');
+
+  bool _hasMeaningfulContent(String html) {
+    final preview = extractPreviewData(html);
+    return preview.text.trim().isNotEmpty ||
+        preview.image != null ||
+        preview.audio ||
+        preview.video;
   }
 
   String _deriveTitleForSave(String html) {

@@ -53,10 +53,169 @@ void main() {
     expect(syncedNotes.single.title, '本地修改');
     expect(await storage.pendingCount(), 0);
   });
+
+  test('offline create followed by update syncs with the remote id', () async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = LocalNotesStorage();
+    final remote = _FakeRemoteNotesRepository();
+
+    final offlineRepository = OfflineNotesRepository(
+      remote: remote,
+      localStorage: storage,
+      offlineMode: true,
+      setOfflineMode: (_) async {},
+    );
+
+    final local = await offlineRepository.create(
+      title: '本地草稿',
+      content: '',
+    );
+    expect(local.id, startsWith('local-'));
+
+    await offlineRepository.update(
+      id: local.id,
+      title: '本地草稿已编辑',
+      content: '<p>本地内容</p>',
+    );
+    expect(await storage.pendingCount(), 2);
+
+    final reconnectingRepository = OfflineNotesRepository(
+      remote: remote,
+      localStorage: storage,
+      offlineMode: true,
+      setOfflineMode: (_) async {},
+    );
+
+    final syncedNotes = await reconnectingRepository.fetchAll();
+
+    expect(remote.createdTitles, ['本地草稿']);
+    expect(remote.updatedIds, ['remote-new']);
+    expect(remote.updatedTitles, contains('本地草稿已编辑'));
+    expect(syncedNotes.single.id, 'remote-new');
+    expect(syncedNotes.single.title, '本地草稿已编辑');
+    expect(await storage.pendingCount(), 0);
+    expect((await storage.readNotes()).any((note) => note.id == local.id),
+        isFalse);
+  });
+
+  test('legacy local update without create is synced as a create', () async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = LocalNotesStorage();
+    final remote = _FakeRemoteNotesRepository();
+    final localNote = NoteItem(
+      id: 'local-legacy',
+      title: '旧本地笔记',
+      content: '<p>旧本地内容</p>',
+      isFavorite: false,
+      isDeleted: false,
+      isPinned: false,
+      updatedAt: DateTime(2026, 7, 2),
+    );
+    await storage.upsertNote(localNote);
+    await storage.addPendingOperation(
+      PendingNoteOperation(type: 'update', note: localNote),
+    );
+
+    final repository = OfflineNotesRepository(
+      remote: remote,
+      localStorage: storage,
+      offlineMode: true,
+      setOfflineMode: (_) async {},
+    );
+
+    await repository.fetchAll();
+
+    expect(remote.createdTitles, ['旧本地笔记']);
+    expect(remote.updatedIds, isEmpty);
+    expect(await storage.pendingCount(), 0);
+    expect((await storage.readNotes()).any((note) => note.id == 'local-legacy'),
+        isFalse);
+  });
+
+  test('untouched local drafts are not synced as remote notes', () async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = LocalNotesStorage();
+    final remote = _FakeRemoteNotesRepository();
+    final draft = NoteItem(
+      id: 'local-empty-draft',
+      title: '新建笔记',
+      content: '',
+      isFavorite: false,
+      isDeleted: false,
+      isPinned: false,
+      updatedAt: DateTime(2026, 7, 2),
+    );
+    await storage.upsertNote(draft);
+    await storage.addPendingOperation(
+      PendingNoteOperation(type: 'create', note: draft),
+    );
+
+    final repository = OfflineNotesRepository(
+      remote: remote,
+      localStorage: storage,
+      offlineMode: true,
+      setOfflineMode: (_) async {},
+    );
+
+    await repository.fetchAll();
+
+    expect(remote.createdTitles, isEmpty);
+    expect(await storage.pendingCount(), 0);
+    expect(
+      (await storage.readNotes()).any((note) => note.id == 'local-empty-draft'),
+      isFalse,
+    );
+  });
+
+  test('untouched draft create followed by content update syncs once', () async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = LocalNotesStorage();
+    final remote = _FakeRemoteNotesRepository();
+    final draft = NoteItem(
+      id: 'local-draft-then-edit',
+      title: '新建笔记',
+      content: '',
+      isFavorite: false,
+      isDeleted: false,
+      isPinned: false,
+      updatedAt: DateTime(2026, 7, 2),
+    );
+    final edited = NoteItem(
+      id: draft.id,
+      title: '真正内容',
+      content: '<p>真正内容</p>',
+      isFavorite: false,
+      isDeleted: false,
+      isPinned: false,
+      updatedAt: DateTime(2026, 7, 2, 1),
+    );
+    await storage.upsertNote(edited);
+    await storage.addPendingOperation(
+      PendingNoteOperation(type: 'create', note: draft),
+    );
+    await storage.addPendingOperation(
+      PendingNoteOperation(type: 'update', note: edited),
+    );
+
+    final repository = OfflineNotesRepository(
+      remote: remote,
+      localStorage: storage,
+      offlineMode: true,
+      setOfflineMode: (_) async {},
+    );
+
+    await repository.fetchAll();
+
+    expect(remote.createdTitles, ['真正内容']);
+    expect(remote.updatedIds, isEmpty);
+    expect(await storage.pendingCount(), 0);
+  });
 }
 
 class _FakeRemoteNotesRepository implements NotesRepository {
   bool fail = false;
+  final List<String> createdTitles = [];
+  final List<String> updatedIds = [];
   final List<String> updatedTitles = [];
   NoteItem note = NoteItem(
     id: 'n1',
@@ -92,6 +251,7 @@ class _FakeRemoteNotesRepository implements NotesRepository {
     String? folderId,
   }) async {
     _maybeFail();
+    updatedIds.add(id);
     updatedTitles.add(title);
     note = NoteItem(
       id: id,
@@ -113,6 +273,7 @@ class _FakeRemoteNotesRepository implements NotesRepository {
     String? folderId,
   }) async {
     _maybeFail();
+    createdTitles.add(title);
     note = NoteItem(
       id: 'remote-new',
       title: title,

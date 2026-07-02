@@ -1,3 +1,4 @@
+import 'package:mynote_android/app/utils/note_preview.dart';
 import 'package:mynote_android/core/storage/local_notes_storage.dart';
 import 'package:mynote_android/domain/entities/note_item.dart';
 import 'package:mynote_android/domain/repositories/notes_repository.dart';
@@ -209,33 +210,111 @@ class OfflineNotesRepository implements NotesRepository {
   }
 
   Future<void> _syncPending() async {
-    final operations = await localStorage.readPendingOperations();
+    var operations = await localStorage.readPendingOperations();
     if (operations.isEmpty) return;
 
-    for (final operation in operations) {
-      switch (operation.type) {
-        case 'create':
-          await remote.create(
+    final idMap = <String, String>{};
+    while (operations.isNotEmpty) {
+      final operation = _mapPendingOperationIds(operations.first, idMap);
+      final unmappedLocalId = _isLocalRepositoryId(operation.note.id) &&
+          !idMap.containsKey(operation.note.id);
+
+      if (unmappedLocalId && operation.type != 'create') {
+        if (operation.type != 'delete' && _hasMeaningfulNote(operation.note)) {
+          final created = await remote.create(
             title: operation.note.title,
             content: operation.note.content,
             folderId: operation.note.folderId,
           );
-          break;
-        case 'delete':
-          await remote.delete(operation.note.id);
-          break;
-        case 'update':
-        default:
-          await remote.update(
-            id: operation.note.id,
-            title: operation.note.title,
-            content: operation.note.content,
-            folderId: operation.note.folderId,
+          idMap[operation.note.id] = created.id;
+          await localStorage.replaceNoteId(
+            oldId: operation.note.id,
+            note: created,
           );
-          break;
+        } else {
+          await localStorage.removeNote(operation.note.id);
+        }
+      } else {
+        switch (operation.type) {
+          case 'create':
+            if (!_hasMeaningfulNote(operation.note)) {
+              await localStorage.removeNote(operation.note.id);
+              break;
+            }
+            final created = await remote.create(
+              title: operation.note.title,
+              content: operation.note.content,
+              folderId: operation.note.folderId,
+            );
+            idMap[operation.note.id] = created.id;
+            await localStorage.replaceNoteId(
+              oldId: operation.note.id,
+              note: created,
+            );
+            break;
+          case 'delete':
+            await remote.delete(operation.note.id);
+            break;
+          case 'update':
+          default:
+            await remote.update(
+              id: operation.note.id,
+              title: operation.note.title,
+              content: operation.note.content,
+              folderId: operation.note.folderId,
+            );
+            break;
+        }
       }
+      operations = operations
+          .skip(1)
+          .map((item) => _mapPendingOperationIds(item, idMap))
+          .toList();
+      await localStorage.savePendingOperations(operations);
     }
-    await localStorage.savePendingOperations(const []);
+  }
+
+  bool _isLocalRepositoryId(String id) => id.startsWith('local-');
+
+  bool _hasMeaningfulNote(NoteItem note) {
+    final preview = extractPreviewData(note.content);
+    final title = note.title.trim();
+    return preview.text.trim().isNotEmpty ||
+        preview.image != null ||
+        preview.audio ||
+        preview.video ||
+        (title.isNotEmpty && title != '新建笔记');
+  }
+
+  PendingNoteOperation _mapPendingOperationIds(
+    PendingNoteOperation operation,
+    Map<String, String> idMap,
+  ) {
+    final mappedId = idMap[operation.note.id];
+    if (mappedId == null || mappedId == operation.note.id) {
+      return operation;
+    }
+    return PendingNoteOperation(
+      type: operation.type,
+      note: _copyNoteWithId(operation.note, mappedId),
+    );
+  }
+
+  NoteItem _copyNoteWithId(NoteItem note, String id) {
+    return NoteItem(
+      id: id,
+      title: note.title,
+      content: note.content,
+      folderId: note.folderId,
+      isFavorite: note.isFavorite,
+      isDeleted: note.isDeleted,
+      isPinned: note.isPinned,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt,
+      color: note.color,
+      shareToken: note.shareToken,
+      sharedAt: note.sharedAt,
+    );
   }
 
   Future<List<NoteItem>> _localNotes({String? folderId}) async {

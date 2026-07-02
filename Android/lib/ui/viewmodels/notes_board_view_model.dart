@@ -172,25 +172,25 @@ class NotesBoardViewModel extends StateNotifier<NotesBoardState> {
   }
 
   Future<NoteItem?> createDraft({String? folderId}) async {
-    state = state.copyWith(loading: true, error: null);
-    try {
-      final note = await ref.read(notesRepositoryProvider).create(
-            title: '新建笔记',
-            content: '',
-            folderId: folderId ?? state.selectedFolderId,
-          );
-      final currentNotes = state.notes.where((item) => item.id != note.id);
-      state = state.copyWith(
-        loading: false,
-        currentView: NotesWorkspaceView.editor,
-        selectedNote: note,
-        notes: [note, ...currentNotes],
-      );
-      return note;
-    } catch (error) {
-      state = state.copyWith(loading: false, error: error.toString());
-      return null;
-    }
+    final now = DateTime.now();
+    final note = NoteItem(
+      id: 'local-draft-${now.microsecondsSinceEpoch}',
+      title: '新建笔记',
+      content: '',
+      folderId: folderId ?? state.selectedFolderId,
+      isFavorite: false,
+      isDeleted: false,
+      isPinned: false,
+      createdAt: now,
+      updatedAt: now,
+    );
+    state = state.copyWith(
+      loading: false,
+      error: null,
+      currentView: NotesWorkspaceView.editor,
+      selectedNote: note,
+    );
+    return note;
   }
 
   Future<void> saveNote({

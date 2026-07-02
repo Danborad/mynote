@@ -59,10 +59,63 @@ void main() {
     expect(repository.lastSavedHtml, '<p>内容2</p>');
     expect(vm.state.statusText, '已保存');
   });
+
+  testWidgets('local draft creates a remote note only after meaningful content',
+      (tester) async {
+    final repository = _FakeEditorNotesRepository();
+    final autosave = EditorAutosaveService(
+        debounceDuration: const Duration(milliseconds: 10));
+    late EditorViewModel vm;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          notesRepositoryProvider.overrideWithValue(repository),
+          editorHtmlMapperProvider.overrideWithValue(const EditorHtmlMapper()),
+          editorAutosaveServiceProvider.overrideWithValue(autosave),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppFlowyEditorLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: Consumer(
+            builder: (context, ref, _) {
+              vm = EditorViewModel(
+                read: ref.read,
+                noteId: 'local-draft-1',
+                autosaveService: autosave,
+                debounceDuration: const Duration(milliseconds: 10),
+              );
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+
+    await vm.load();
+    await vm.save();
+    expect(repository.createCount, 0);
+    expect(vm.state.document.noteId, 'local-draft-1');
+
+    vm.updateHtml('<p>真正内容</p>');
+    await tester.pump(const Duration(milliseconds: 30));
+
+    expect(repository.createCount, 1);
+    expect(repository.saveCount, 0);
+    expect(repository.lastSavedTitle, '真正内容');
+    expect(repository.lastSavedHtml, '<p>真正内容</p>');
+    expect(vm.state.document.noteId, 'created-note');
+    expect(vm.state.statusText, '已保存');
+  });
 }
 
 class _FakeEditorNotesRepository implements NotesRepository {
   int saveCount = 0;
+  int createCount = 0;
   String? lastSavedTitle;
   String? lastSavedHtml;
 
@@ -99,8 +152,23 @@ class _FakeEditorNotesRepository implements NotesRepository {
 
   @override
   Future<NoteItem> create(
-          {required String title, required String content, String? folderId}) =>
-      throw UnimplementedError();
+      {required String title,
+      required String content,
+      String? folderId}) async {
+    createCount++;
+    lastSavedTitle = title;
+    lastSavedHtml = content;
+    return NoteItem(
+        id: 'created-note',
+        title: title,
+        content: content,
+        folderId: folderId,
+        isFavorite: false,
+        isDeleted: false,
+        isPinned: false,
+        updatedAt: DateTime(2026));
+  }
+
   @override
   Future<void> delete(String id) async {}
   @override
